@@ -1,0 +1,415 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ORGANIZATION (TENANT) ────────────────────────────────────────────────────
+
+model Organization {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  logo          String?
+  email         String
+  phone         String?
+  address       String?
+  currency      String   @default("SAR")
+  timezone      String   @default("Asia/Riyadh")
+  locale        String   @default("ar")
+  taxRate       Float    @default(0.15)
+  receiptFooter String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  branches     Branch[]
+  users        User[]
+  subscription Subscription?
+  categories   Category[]
+  menuItems    MenuItem[]
+}
+
+// ─── SUBSCRIPTION ─────────────────────────────────────────────────────────────
+
+model Plan {
+  id            String   @id @default(cuid())
+  name          String
+  nameAr        String
+  description   String?
+  descriptionAr String?
+  price         Float
+  currency      String   @default("SAR")
+  interval      String   @default("month")
+  stripePriceId String?  @unique
+  maxBranches   Int      @default(1)
+  maxUsers      Int      @default(5)
+  maxMenuItems  Int      @default(100)
+  features      String[]
+  isPopular     Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                   String    @id @default(cuid())
+  organizationId       String    @unique
+  planId               String
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  status               SubStatus @default(TRIALING)
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  trialEnd             DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan         Plan         @relation(fields: [planId], references: [id])
+}
+
+enum SubStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  PAUSED
+}
+
+// ─── BRANCH ───────────────────────────────────────────────────────────────────
+
+model Branch {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  nameAr         String?
+  address        String?
+  phone          String?
+  isActive       Boolean  @default(true)
+  openTime       String?
+  closeTime      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization  Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  users         User[]
+  tables        Table[]
+  orders        Order[]
+  menuItems     MenuItem[]
+  inventory     InventoryItem[]
+  shifts        Shift[]
+}
+
+// ─── USER / AUTH ──────────────────────────────────────────────────────────────
+
+model User {
+  id             String    @id @default(cuid())
+  organizationId String
+  branchId       String?
+  name           String
+  email          String
+  emailVerified  DateTime?
+  phone          String?
+  password       String?
+  image          String?
+  role           UserRole  @default(CASHIER)
+  isActive       Boolean   @default(true)
+  lastLogin      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch        Branch?       @relation(fields: [branchId], references: [id])
+  sessions      Session[]
+  orders        Order[]
+  activityLogs  ActivityLog[]
+  shifts        Shift[]
+
+  @@unique([email, organizationId])
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  CASHIER
+  WAITER
+  KITCHEN
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  entity    String?
+  entityId  String?
+  details   Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── MENU ─────────────────────────────────────────────────────────────────────
+
+model Category {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  nameAr         String?
+  description    String?
+  image          String?
+  color          String?
+  sortOrder      Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  menuItems    MenuItem[]
+
+  @@index([organizationId])
+}
+
+model MenuItem {
+  id              String   @id @default(cuid())
+  organizationId  String
+  branchId        String?
+  categoryId      String
+  name            String
+  nameAr          String?
+  description     String?
+  descriptionAr   String?
+  image           String?
+  price           Float
+  cost            Float?
+  sku             String?
+  barcode         String?
+  isAvailable     Boolean  @default(true)
+  isFeatured      Boolean  @default(false)
+  preparationTime Int?
+  calories        Int?
+  allergens       String[]
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization  Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category      Category        @relation(fields: [categoryId], references: [id])
+  branch        Branch?         @relation(fields: [branchId], references: [id])
+  modifierGroups ModifierGroup[]
+  orderItems    OrderItem[]
+
+  @@index([organizationId, categoryId])
+}
+
+model ModifierGroup {
+  id         String   @id @default(cuid())
+  menuItemId String
+  name       String
+  nameAr     String?
+  required   Boolean  @default(false)
+  multiple   Boolean  @default(false)
+  minSelect  Int      @default(0)
+  maxSelect  Int      @default(1)
+  createdAt  DateTime @default(now())
+
+  menuItem  MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  modifiers Modifier[]
+}
+
+model Modifier {
+  id              String   @id @default(cuid())
+  modifierGroupId String
+  name            String
+  nameAr          String?
+  price           Float    @default(0)
+  isDefault       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  modifierGroup ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+}
+
+// ─── TABLES ───────────────────────────────────────────────────────────────────
+
+model Table {
+  id        String      @id @default(cuid())
+  branchId  String
+  name      String
+  capacity  Int         @default(4)
+  section   String?
+  posX      Float       @default(0)
+  posY      Float       @default(0)
+  shape     TableShape  @default(SQUARE)
+  status    TableStatus @default(AVAILABLE)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  branch Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  orders Order[]
+}
+
+enum TableShape {
+  SQUARE
+  CIRCLE
+  RECTANGLE
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  MAINTENANCE
+}
+
+// ─── ORDERS ───────────────────────────────────────────────────────────────────
+
+model Order {
+  id             String      @id @default(cuid())
+  orderNumber    String
+  organizationId String
+  branchId       String
+  tableId        String?
+  userId         String
+  status         OrderStatus @default(PENDING)
+  type           OrderType   @default(DINE_IN)
+  subtotal       Float       @default(0)
+  discount       Float       @default(0)
+  discountType   String?
+  tax            Float       @default(0)
+  total          Float       @default(0)
+  notes          String?
+  customerName   String?
+  customerPhone  String?
+  paymentMethod  String?
+  paymentStatus  PayStatus   @default(UNPAID)
+  paidAt         DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  branch   Branch      @relation(fields: [branchId], references: [id])
+  table    Table?      @relation(fields: [tableId], references: [id])
+  user     User        @relation(fields: [userId], references: [id])
+  items    OrderItem[]
+  payments Payment[]
+
+  @@index([branchId, createdAt])
+  @@index([orderNumber])
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  SERVED
+  COMPLETED
+  CANCELLED
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
+  DELIVERY
+}
+
+enum PayStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  REFUNDED
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  menuItemId String
+  name       String
+  nameAr     String?
+  price      Float
+  quantity   Int
+  total      Float
+  notes      String?
+  modifiers  Json?
+  status     String   @default("PENDING")
+  createdAt  DateTime @default(now())
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  orderId   String
+  method    String
+  amount    Float
+  reference String?
+  status    String   @default("SUCCESS")
+  createdAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+// ─── INVENTORY ────────────────────────────────────────────────────────────────
+
+model InventoryItem {
+  id          String   @id @default(cuid())
+  branchId    String
+  name        String
+  nameAr      String?
+  unit        String   @default("kg")
+  quantity    Float    @default(0)
+  minQuantity Float    @default(0)
+  costPerUnit Float    @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  branch       Branch                 @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  transactions InventoryTransaction[]
+}
+
+model InventoryTransaction {
+  id              String   @id @default(cuid())
+  inventoryItemId String
+  type            String
+  quantity        Float
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+}
+
+// ─── SHIFTS ───────────────────────────────────────────────────────────────────
+
+model Shift {
+  id          String    @id @default(cuid())
+  branchId    String
+  userId      String
+  startTime   DateTime  @default(now())
+  endTime     DateTime?
+  openingCash Float     @default(0)
+  closingCash Float?
+  notes       String?
+
+  branch Branch @relation(fields: [branchId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+}

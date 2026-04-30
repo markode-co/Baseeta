@@ -1,26 +1,117 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: #2563EB;
+  --color-primary-foreground: #ffffff;
+  --color-primary-hover: #1d4ed8;
+
+  --color-secondary: #f1f5f9;
+  --color-secondary-foreground: #0f172a;
+
+  --color-success: #22C55E;
+  --color-success-foreground: #ffffff;
+
+  --color-warning: #f59e0b;
+  --color-warning-foreground: #ffffff;
+
+  --color-danger: #ef4444;
+  --color-danger-foreground: #ffffff;
+
+  --color-background: #f8fafc;
+  --color-surface: #ffffff;
+  --color-border: #e2e8f0;
+  --color-muted: #94a3b8;
+  --color-foreground: #0f172a;
+  --color-muted-foreground: #64748b;
+
+  --color-sidebar: #1e293b;
+  --color-sidebar-foreground: #f1f5f9;
+  --color-sidebar-hover: #334155;
+  --color-sidebar-active: #2563EB;
+
+  --font-sans: var(--font-geist-sans), 'Cairo', 'Tajawal', sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+
+  --radius: 0.5rem;
+  --radius-sm: 0.25rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  min-height: 100%;
 }
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* RTL Support */
+[dir="rtl"] {
+  font-family: 'Cairo', 'Tajawal', var(--font-sans);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* POS Grid */
+.pos-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 0;
+  height: calc(100vh - 64px);
+}
+
+/* Status badge colors */
+.status-available { background-color: #dcfce7; color: #16a34a; }
+.status-occupied { background-color: #fee2e2; color: #dc2626; }
+.status-reserved { background-color: #fef9c3; color: #ca8a04; }
+.status-pending { background-color: #fef3c7; color: #d97706; }
+.status-preparing { background-color: #dbeafe; color: #2563eb; }
+.status-ready { background-color: #d1fae5; color: #059669; }
+.status-completed { background-color: #f1f5f9; color: #64748b; }
+.status-cancelled { background-color: #fce7f3; color: #db2777; }
