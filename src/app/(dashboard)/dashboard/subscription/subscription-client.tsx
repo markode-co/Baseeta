@@ -1,11 +1,10 @@
 "use client";
 import { useState } from "react";
-import { Check, Star, Zap, Crown, Shield, ArrowRight, Calendar, Users, Store, UtensilsCrossed, AlertCircle } from "lucide-react";
+import { Check, Star, Zap, Crown, ArrowRight, Users, Store, UtensilsCrossed, AlertCircle, Phone, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Topbar } from "@/components/layout/topbar";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import toast from "react-hot-toast";
 
 const STATUS_MAP = {
@@ -19,6 +18,14 @@ const STATUS_MAP = {
 
 const PLAN_ICONS = { BASIC: Zap, PRO: Star, PREMIUM: Crown };
 
+const COUNTRIES = [
+  { code: "EG", label: "🇪🇬 مصر",       currency: "EGP", symbol: "ج.م", rate: 1    },
+  { code: "SA", label: "🇸🇦 السعودية",  currency: "SAR", symbol: "ر.س", rate: 1/14  },
+  { code: "AE", label: "🇦🇪 الإمارات",  currency: "AED", symbol: "د.إ", rate: 1/12  },
+  { code: "KW", label: "🇰🇼 الكويت",    currency: "KWD", symbol: "د.ك", rate: 1/100 },
+  { code: "US", label: "🇺🇸 الولايات المتحدة", currency: "USD", symbol: "$",   rate: 1/40  },
+];
+
 interface Plan {
   name: string; nameEn: string; price: number; currency: string;
   maxBranches: number; maxUsers: number; maxMenuItems: number;
@@ -30,25 +37,7 @@ export function SubscriptionClient({ subscription, plans, orgStats }: {
   plans: Record<string, Plan>;
   orgStats: { branches: number; users: number; menuItems: number };
 }) {
-  const [isLoading, setIsLoading] = useState<string | null>(null);
-
-  async function handleSubscribe(planKey: string) {
-    setIsLoading(planKey);
-    try {
-      const res = await fetch("/api/subscription/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: planKey }),
-      });
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-      else toast.error("فشل إنشاء جلسة الدفع");
-    } catch {
-      toast.error("حدث خطأ");
-    } finally {
-      setIsLoading(null);
-    }
-  }
+  const [countryCode, setCountryCode] = useState("EG");
 
   async function handleManage() {
     try {
@@ -62,6 +51,14 @@ export function SubscriptionClient({ subscription, plans, orgStats }: {
 
   const statusConfig = subscription ? STATUS_MAP[subscription.status as keyof typeof STATUS_MAP] : null;
   const StatusIcon = statusConfig?.icon || AlertCircle;
+  const country = COUNTRIES.find((c) => c.code === countryCode) ?? COUNTRIES[0];
+
+  function convertPrice(priceEgp: number) {
+    const converted = priceEgp * country.rate;
+    if (country.currency === "EGP") return Math.round(converted).toLocaleString("ar-EG");
+    if (country.rate < 0.05) return converted.toFixed(1);
+    return Math.round(converted).toLocaleString("ar-EG");
+  }
 
   return (
     <main className="flex-1 overflow-auto">
@@ -117,7 +114,23 @@ export function SubscriptionClient({ subscription, plans, orgStats }: {
 
         {/* Plans */}
         <div>
-          <h2 className="text-xl font-bold text-slate-900 mb-4">اختر خطتك</h2>
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
+            <h2 className="text-xl font-bold text-slate-900">اختر خطتك</h2>
+            {/* Country / currency selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-500">العملة:</span>
+              <select
+                value={countryCode}
+                onChange={(e) => setCountryCode(e.target.value)}
+                className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code}>{c.label} — {c.currency}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {Object.entries(plans).map(([key, plan]) => {
               const Icon = PLAN_ICONS[key as keyof typeof PLAN_ICONS] || Zap;
@@ -151,8 +164,8 @@ export function SubscriptionClient({ subscription, plans, orgStats }: {
                     </div>
 
                     <div className="mb-5">
-                      <span className="text-4xl font-black text-slate-900">{plan.price}</span>
-                      <span className="text-slate-500 mr-1">ج.م / شهر</span>
+                      <span className="text-4xl font-black text-slate-900">{convertPrice(plan.price)}</span>
+                      <span className="text-slate-500 mr-1">{country.symbol} / شهر</span>
                     </div>
 
                     <div className="space-y-2 mb-6">
@@ -164,19 +177,51 @@ export function SubscriptionClient({ subscription, plans, orgStats }: {
                       ))}
                     </div>
 
-                    <Button
-                      className="w-full"
-                      variant={plan.isPopular ? "default" : "outline"}
-                      loading={isLoading === key}
-                      disabled={isCurrentPlan}
-                      onClick={() => handleSubscribe(key)}
-                    >
-                      {isCurrentPlan ? "خطتك الحالية" : "اشترك الآن"}
-                    </Button>
+                    {/* Contact us instead of subscribe button */}
+                    <div className="space-y-2">
+                      <a
+                        href="tel:+201090886364"
+                        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
+                      >
+                        <Phone className="w-4 h-4" />
+                        تواصل معانا
+                      </a>
+                      <a
+                        href="mailto:ca.markode@gmail.com"
+                        className="flex items-center justify-center gap-2 w-full py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs transition-colors"
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                        ca.markode@gmail.com
+                      </a>
+                    </div>
                   </CardContent>
                 </Card>
               );
             })}
+          </div>
+
+          {/* Contact banner */}
+          <div className="mt-6 bg-gradient-to-l from-blue-600 to-blue-700 rounded-2xl p-6 text-white flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <p className="font-bold text-lg mb-1">هل تحتاج مساعدة في اختيار الخطة؟</p>
+              <p className="text-blue-100 text-sm">تواصل معنا وسنساعدك في إيجاد الخطة المناسبة لمطعمك</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 flex-shrink-0">
+              <a
+                href="tel:+201090886364"
+                className="flex items-center gap-2 bg-white text-blue-700 font-bold px-5 py-2.5 rounded-xl text-sm hover:bg-blue-50 transition-colors"
+              >
+                <Phone className="w-4 h-4" />
+                +201090886364
+              </a>
+              <a
+                href="mailto:ca.markode@gmail.com"
+                className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white font-medium px-5 py-2.5 rounded-xl text-sm transition-colors"
+              >
+                <Mail className="w-4 h-4" />
+                البريد الإلكتروني
+              </a>
+            </div>
           </div>
         </div>
 
@@ -187,10 +232,10 @@ export function SubscriptionClient({ subscription, plans, orgStats }: {
           </CardHeader>
           <CardContent className="space-y-4">
             {[
+              { q: "كيف يمكنني الاشتراك؟", a: "تواصل معنا عبر الهاتف +201090886364 أو البريد الإلكتروني ca.markode@gmail.com وسنرتب لك الاشتراك مباشرة." },
               { q: "هل يمكنني إلغاء الاشتراك في أي وقت؟", a: "نعم، يمكنك الإلغاء في أي وقت وسيستمر اشتراكك حتى نهاية الفترة المدفوعة." },
               { q: "كيف يعمل التجربة المجانية؟", a: "تحصل على 14 يوماً مجاناً بكامل الميزات دون الحاجة إلى بطاقة ائتمانية." },
               { q: "هل يمكنني الترقية أو التخفيض في الخطة؟", a: "نعم، يمكنك تغيير خطتك في أي وقت وسيتم حساب الفرق تلقائياً." },
-              { q: "ما طرق الدفع المتاحة؟", a: "نقبل جميع البطاقات الائتمانية (Visa, Mastercard, Mada) عبر بوابة Stripe الآمنة." },
             ].map((faq) => (
               <div key={faq.q} className="pb-4 border-b border-slate-100 last:border-0">
                 <p className="font-medium text-slate-800 mb-1">{faq.q}</p>

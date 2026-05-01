@@ -21,15 +21,15 @@ const TESTIMONIALS = [
 
 const PLANS = [
   {
-    name: "أساسي", price: 149, popular: false,
+    name: "أساسي", price: 1000, popular: false,
     features: ["فرع واحد", "5 مستخدمين", "100 صنف", "نقطة البيع", "إدارة الطاولات", "تقارير أساسية"],
   },
   {
-    name: "احترافي", price: 299, popular: true,
+    name: "احترافي", price: 2500, popular: true,
     features: ["3 فروع", "20 مستخدم", "500 صنف", "كل ميزات الأساسي", "نظام المطبخ KDS", "إدارة المخزون", "تقارير متقدمة"],
   },
   {
-    name: "بريميوم", price: 599, popular: false,
+    name: "بريميوم", price: 5000, popular: false,
     features: ["فروع غير محدودة", "مستخدمون غير محدودون", "أصناف غير محدودة", "كل ميزات الاحترافي", "API كامل", "مدير حساب مخصص", "دعم 24/7"],
   },
 ];

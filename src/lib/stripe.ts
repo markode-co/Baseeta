@@ -8,7 +8,7 @@ export const PLANS = {
   BASIC: {
     name: "أساسي",
     nameEn: "Basic",
-    price: 149,
+    price: 1000,
     currency: "EGP",
     stripePriceId: process.env.STRIPE_PRICE_BASIC || "",
     maxBranches: 1,
@@ -26,7 +26,7 @@ export const PLANS = {
   PRO: {
     name: "احترافي",
     nameEn: "Pro",
-    price: 299,
+    price: 2500,
     currency: "EGP",
     stripePriceId: process.env.STRIPE_PRICE_PRO || "",
     maxBranches: 3,
@@ -47,7 +47,7 @@ export const PLANS = {
   PREMIUM: {
     name: "بريميوم",
     nameEn: "Premium",
-    price: 599,
+    price: 5000,
     currency: "EGP",
     stripePriceId: process.env.STRIPE_PRICE_PREMIUM || "",
     maxBranches: -1,

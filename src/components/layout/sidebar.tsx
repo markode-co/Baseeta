@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/subscription", icon: CreditCard,   label: "الاشتراك" },
   { href: "/dashboard/branches",   icon: Store,           label: "الفروع" },
   { href: "/dashboard/settings",   icon: Settings,        label: "الإعدادات" },
+  
 ];
 
 interface SidebarProps {

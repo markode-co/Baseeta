@@ -21,8 +21,23 @@ export function savePrinterConfig(cfg: PrinterConfig) {
   } catch {}
 }
 
+export function loadReceiptSettings(): { address: string; website: string; header: string } {
+  try {
+    const s = localStorage.getItem("receipt-settings");
+    if (s) return JSON.parse(s);
+  } catch {}
+  return { address: "", website: "", header: "" };
+}
+
+export function saveReceiptSettings(s: { address: string; website: string; header: string }) {
+  try { localStorage.setItem("receipt-settings", JSON.stringify(s)); } catch {}
+}
+
 export function buildReceiptHtml(data: {
   orgName: string;
+  orgAddress?: string;
+  orgWebsite?: string;
+  receiptHeader?: string;
   orderNumber: string | number;
   items: Array<{ name: string; nameAr: string | null; qty: number; price: number }>;
   subtotal: number;
@@ -45,9 +60,19 @@ export function buildReceiptHtml(data: {
     )
     .join("");
 
+  const qrUrl = data.orgWebsite
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(data.orgWebsite)}&margin=2`
+    : "";
+
+  const websiteDomain = data.orgWebsite
+    ? data.orgWebsite.replace(/^https?:\/\//, "").replace(/\/$/, "")
+    : "";
+
   return `
     <div style="font-family:'Courier New',monospace;width:76mm;margin:0 auto;direction:rtl;font-size:12px;padding:4px;">
-      <h2 style="text-align:center;margin:4px 0;font-size:16px;">${data.orgName}</h2>
+      ${data.receiptHeader ? `<p style="text-align:center;margin:2px 0;font-size:11px;color:#555;">${data.receiptHeader}</p>` : ""}
+      <h2 style="text-align:center;margin:4px 0;font-size:18px;font-weight:900;">${data.orgName}</h2>
+      ${data.orgAddress ? `<p style="text-align:center;margin:2px 0;font-size:10px;color:#555;">${data.orgAddress}</p>` : ""}
       <p style="text-align:center;margin:2px 0;font-size:11px;">طلب رقم: #${data.orderNumber}</p>
       ${data.tableInfo ? `<p style="text-align:center;margin:2px 0;font-size:11px;">${data.tableInfo}</p>` : ""}
       <hr style="border:1px dashed #000;margin:6px 0;"/>
@@ -62,12 +87,18 @@ export function buildReceiptHtml(data: {
       <hr style="border:1px dashed #000;margin:6px 0;"/>
       <p style="margin:2px 0;">المجموع الفرعي: ${fmt(data.subtotal)}</p>
       ${data.discount ? `<p style="margin:2px 0;">الخصم: -${fmt(data.discount)}</p>` : ""}
-      <p style="margin:2px 0;">الضريبة (15%): ${fmt(data.tax)}</p>
+      <p style="margin:2px 0;">الضريبة: ${fmt(data.tax)}</p>
       <p style="font-weight:bold;font-size:14px;margin:4px 0;">الإجمالي: ${fmt(data.total)}</p>
       <p style="margin:2px 0;">طريقة الدفع: ${data.paymentMethod}</p>
       <hr style="border:1px dashed #000;margin:6px 0;"/>
       ${data.footer ? `<p style="text-align:center;margin:4px 0;">${data.footer}</p>` : ""}
       <p style="text-align:center;margin:4px 0;">شكراً لزيارتكم 🙏</p>
+      ${qrUrl ? `
+      <hr style="border:1px dashed #000;margin:6px 0;"/>
+      <div style="text-align:center;margin:6px 0;">
+        <img src="${qrUrl}" width="90" height="90" style="display:block;margin:0 auto;" />
+        <p style="font-size:10px;margin:3px 0;color:#555;">${websiteDomain}</p>
+      </div>` : ""}
     </div>`;
 }
 
@@ -204,7 +235,7 @@ export async function printNetwork(ip: string, port: number, data: Uint8Array) {
   const res = await fetch(`http://${ip}:${port}/print`, {
     method: "POST",
     headers: { "Content-Type": "application/octet-stream" },
-    body: data,
+    body: data as BodyInit,
   });
   if (!res.ok) throw new Error(`خطأ في الطباعة عبر الشبكة: ${res.status}`);
 }

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Plus, Store, Users, Table2, ShoppingCart, MapPin, Phone, Edit, Trash2, Check, X } from "lucide-react";
+import { Plus, Store, Users, Table2, ShoppingCart, MapPin, Phone, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +23,7 @@ export function BranchesClient({ branches: initialBranches, organizationId }: {
   const [branches, setBranches] = useState<Branch[]>(initialBranches);
   const [showAdd, setShowAdd] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "", nameAr: "", address: "", phone: "", openTime: "08:00", closeTime: "23:00",
   });
@@ -62,6 +63,21 @@ export function BranchesClient({ branches: initialBranches, organizationId }: {
     }
   }
 
+  async function deleteBranch(id: string) {
+    if (!confirm("هل أنت متأكد من حذف هذا الفرع؟")) return;
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/branches/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setBranches((prev) => prev.filter((b) => b.id !== id));
+      toast.success("تم حذف الفرع");
+    } catch {
+      toast.error("فشل الحذف");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <main className="flex-1 overflow-auto">
       <Topbar title="إدارة الفروع" subtitle={`${branches.length} فرع`} />
@@ -77,21 +93,31 @@ export function BranchesClient({ branches: initialBranches, organizationId }: {
           {branches.map((branch) => (
             <Card key={branch.id} className={`${!branch.isActive ? "opacity-60" : ""}`}>
               <CardContent className="p-5">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
+                <div className="flex items-start justify-between gap-2 mb-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
                       <Store className="w-6 h-6 text-blue-600" />
                     </div>
-                    <div>
-                      <p className="font-bold text-slate-900">{branch.nameAr || branch.name}</p>
-                      {branch.nameAr && <p className="text-xs text-slate-400">{branch.name}</p>}
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-900 truncate">{branch.nameAr || branch.name}</p>
+                      {branch.nameAr && <p className="text-xs text-slate-400 truncate">{branch.name}</p>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={branch.isActive ? "success" : "secondary"}>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <Badge variant={branch.isActive ? "success" : "secondary"} className="whitespace-nowrap">
                       {branch.isActive ? "نشط" : "معطل"}
                     </Badge>
                     <Switch checked={branch.isActive} onCheckedChange={() => toggleBranch(branch.id, branch.isActive)} />
+                    <button
+                      onClick={() => deleteBranch(branch.id)}
+                      disabled={deletingId === branch.id}
+                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
+                      title="حذف الفرع"
+                    >
+                      {deletingId === branch.id
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <Trash2 className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
 

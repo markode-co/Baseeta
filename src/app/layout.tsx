@@ -39,13 +39,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-TileColor" content="#2563eb" />
         <meta name="msapplication-tap-highlight" content="no" />
-        {/* Capture beforeinstallprompt before React mounts */}
+        {/* Capture beforeinstallprompt + clear stale SW caches before chunks load */}
         <script dangerouslySetInnerHTML={{ __html: `
           window.__pwaPrompt = null;
           window.addEventListener('beforeinstallprompt', function(e) {
             e.preventDefault();
             window.__pwaPrompt = e;
           });
+          var CURRENT_CACHE = 'baseeta-v3';
+          if ('caches' in window) {
+            caches.keys().then(function(keys) {
+              keys.forEach(function(k) {
+                if (k !== CURRENT_CACHE) { caches.delete(k); }
+              });
+            });
+          }
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+              regs.forEach(function(reg) {
+                reg.update();
+              });
+            });
+          }
         `}} />
       </head>
       <body className="min-h-full">

@@ -8,8 +8,15 @@ const JWT_SECRET = new TextEncoder().encode(
 
 const PUBLIC_PATHS = ["/", "/login", "/register", "/pricing", "/api/auth", "/api/webhook"];
 
+const PUBLIC_FILES = ["/manifest.json", "/sw.js", "/icon", "/icon2", "/apple-icon", "/robots.txt", "/favicon.ico"];
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  const isPublicFile = PUBLIC_FILES.some(
+    (p) => pathname === p || pathname.startsWith(p)
+  );
+  if (isPublicFile) return NextResponse.next();
 
   const isPublic = PUBLIC_PATHS.some(
     (p) => pathname === p || pathname.startsWith(p + "/")
@@ -38,6 +45,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\\\.png$).*)"
+    "/((?!_next/static|_next/image|favicon\\.ico|manifest\\.json|sw\\.js|.*\\.png$|.*\\.jpg$|.*\\.svg$|.*\\.ico$|.*\\.webp$|.*\\.woff2?$).*)"
   ],
 };

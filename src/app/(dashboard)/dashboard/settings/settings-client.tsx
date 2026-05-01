@@ -9,11 +9,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Building2, Globe, Percent, FileText, Save, Printer,
   Bluetooth, Wifi, Usb, Monitor, CheckCircle2, XCircle,
-  Loader2, RefreshCw,
+  Loader2, RefreshCw, Link2, QrCode, Info,
 } from "lucide-react";
 import {
   type PrinterConfig, type PrinterType,
   loadPrinterConfig, savePrinterConfig,
+  loadReceiptSettings, saveReceiptSettings,
   buildReceiptHtml, buildEscPos,
   printBrowser, printBluetooth, printNetwork,
 } from "@/lib/printer";
@@ -87,11 +88,14 @@ function PrinterSettings({ orgName }: { orgName: string }) {
 
   async function testPrint() {
     setTesting(true);
+    const rs = loadReceiptSettings();
     const receiptData = {
       orgName, orderNumber: "TEST-001",
       items: TEST_ITEMS,
       subtotal: 85, tax: 12.75, total: 97.75,
       paymentMethod: "نقداً", footer: orgName,
+      orgWebsite: rs.website || undefined,
+      receiptHeader: rs.header || undefined,
     };
     try {
       if (cfg.type === "browser" || cfg.type === "usb") {
@@ -263,6 +267,21 @@ export function SettingsClient({ org }: { org: Org }) {
     taxRate: String(org.taxRate * 100), receiptFooter: org.receiptFooter || "",
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [receiptLocal, setReceiptLocal] = useState({ address: "", website: "", header: "" });
+  const [receiptSaved, setReceiptSaved] = useState(false);
+
+  useEffect(() => { setReceiptLocal(loadReceiptSettings()); }, []);
+
+  function saveReceiptLocal() {
+    saveReceiptSettings(receiptLocal);
+    setReceiptSaved(true);
+    toast.success("تم حفظ إعدادات الفاتورة");
+    setTimeout(() => setReceiptSaved(false), 2000);
+  }
+
+  const qrPreviewUrl = receiptLocal.website
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(receiptLocal.website)}&margin=2`
+    : "";
 
   async function save() {
     setIsSaving(true);
@@ -346,24 +365,100 @@ export function SettingsClient({ org }: { org: Org }) {
           </TabsContent>
 
           <TabsContent value="receipts">
-            <Card>
-              <CardHeader><CardTitle>إعدادات الفاتورة</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">نص ذيل الفاتورة</label>
-                  <textarea
-                    value={form.receiptFooter}
-                    onChange={(e) => setForm({ ...form, receiptFooter: e.target.value })}
-                    placeholder="شكراً لزيارتكم، نتمنى أن تكونوا راضين..."
-                    rows={3}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                  />
-                </div>
-                <div className="flex justify-end">
-                  <Button onClick={save} loading={isSaving}><Save className="w-4 h-4" /> حفظ</Button>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="space-y-4">
+              {/* Info from general settings */}
+              <Card>
+                <CardHeader><CardTitle className="text-base">بيانات المطعم على الفاتورة</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
+                    <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                    <span>اسم المطعم والعنوان يُؤخذان من تبويب «عام» ويظهران تلقائياً على الفاتورة.</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="bg-slate-50 rounded-lg px-3 py-2.5">
+                      <p className="text-xs text-slate-400 mb-0.5">اسم المطعم</p>
+                      <p className="text-sm font-semibold text-slate-800">{form.name || "—"}</p>
+                    </div>
+                    <div className="bg-slate-50 rounded-lg px-3 py-2.5">
+                      <p className="text-xs text-slate-400 mb-0.5">العنوان</p>
+                      <p className="text-sm text-slate-700">{form.address || "—"}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Extra receipt fields stored in localStorage */}
+              <Card>
+                <CardHeader><CardTitle className="text-base">تخصيص الفاتورة</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">نص الترحيب (أعلى الفاتورة)</label>
+                    <Input
+                      value={receiptLocal.header}
+                      onChange={(e) => setReceiptLocal({ ...receiptLocal, header: e.target.value })}
+                      placeholder="أهلاً بكم في مطعمنا"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">يظهر بخط صغير فوق اسم المطعم</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center gap-1.5">
+                      <Link2 className="w-4 h-4 text-blue-500" />
+                      رابط الموقع الإلكتروني
+                    </label>
+                    <Input
+                      value={receiptLocal.website}
+                      onChange={(e) => setReceiptLocal({ ...receiptLocal, website: e.target.value })}
+                      placeholder="https://example.com"
+                      dir="ltr"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">يظهر كـ QR Code في أسفل الفاتورة — عند مسحه يفتح الموقع مباشرة</p>
+                  </div>
+
+                  {/* QR Preview */}
+                  {qrPreviewUrl && (
+                    <div className="flex items-center gap-4 bg-slate-50 border border-slate-200 rounded-xl p-4">
+                      <img src={qrPreviewUrl} width={80} height={80} alt="QR Preview" className="rounded-lg border border-slate-200 bg-white p-1 flex-shrink-0" />
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <QrCode className="w-4 h-4 text-green-600" />
+                          <p className="text-sm font-semibold text-slate-800">معاينة QR Code</p>
+                        </div>
+                        <p className="text-xs text-slate-500 break-all">{receiptLocal.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}</p>
+                        <p className="text-xs text-green-600 mt-1">سيظهر هذا الكود في أسفل الفاتورة</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end pt-1 border-t border-slate-100">
+                    <Button onClick={saveReceiptLocal}>
+                      {receiptSaved ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                      {receiptSaved ? "تم الحفظ" : "حفظ إعدادات الفاتورة"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Footer — saved to DB */}
+              <Card>
+                <CardHeader><CardTitle className="text-base">ذيل الفاتورة</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">نص ذيل الفاتورة</label>
+                    <textarea
+                      value={form.receiptFooter}
+                      onChange={(e) => setForm({ ...form, receiptFooter: e.target.value })}
+                      placeholder="شكراً لزيارتكم، نتمنى أن تكونوا راضين..."
+                      rows={3}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <Button onClick={save} loading={isSaving}><Save className="w-4 h-4" /> حفظ</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="printer">

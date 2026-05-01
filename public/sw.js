@@ -1,4 +1,4 @@
-const CACHE = "baseeta-v1";
+const CACHE = "baseeta-v3";
 
 self.addEventListener("install", () => self.skipWaiting());
 
@@ -40,9 +40,27 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Cache-first for static assets (_next/static, images, fonts)
+  // Network-first for JS chunks — they change on every rebuild
   if (
-    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.startsWith("/_next/static/chunks/") ||
+    url.pathname.startsWith("/_next/static/development/") ||
+    url.pathname.endsWith(".js")
+  ) {
+    e.respondWith(
+      fetch(request)
+        .then((res) => {
+          const clone = res.clone();
+          caches.open(CACHE).then((c) => c.put(request, clone));
+          return res;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // Cache-first for truly static assets (images, fonts, CSS with content hashes)
+  if (
+    url.pathname.startsWith("/_next/static/media/") ||
     url.pathname.startsWith("/icons/") ||
     url.pathname === "/icon" ||
     url.pathname === "/icon2" ||

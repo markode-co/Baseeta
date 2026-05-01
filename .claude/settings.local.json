@@ -25,7 +25,17 @@
       "Bash(node -e ' *)",
       "Bash(node -e \"console.log\\(process.version\\)\")",
       "Bash(node -e \"const {execSync} = require\\('child_process'\\); console.log\\(execSync\\('node --version'\\).toString\\(\\).trim\\(\\)\\)\")",
-      "Bash(grep -c \"function fae\\(e,r\\){return Object.entries\\(e\\)\" \"d:/Baseeta - Cashier/node_modules/prisma/build/index.js\")"
+      "Bash(grep -c \"function fae\\(e,r\\){return Object.entries\\(e\\)\" \"d:/Baseeta - Cashier/node_modules/prisma/build/index.js\")",
+      "Bash(tasklist)",
+      "Bash(npx tsc *)",
+      "Bash(taskkill /F /PID 10220)",
+      "Bash(taskkill /F /PID 936)",
+      "PowerShell(Stop-Process -Id 10220 -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Id 936 -Force -ErrorAction SilentlyContinue)",
+      "Bash(pnpm dev *)",
+      "PowerShell(Get-Process node -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Force)",
+      "PowerShell(netstat -ano)"
     ]
   }
 }
