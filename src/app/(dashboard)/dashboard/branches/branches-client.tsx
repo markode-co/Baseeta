@@ -82,7 +82,7 @@ export function BranchesClient({ branches: initialBranches, organizationId }: {
     <main className="flex-1 overflow-auto">
       <Topbar title="إدارة الفروع" subtitle={`${branches.length} فرع`} />
 
-      <div className="p-6" dir="rtl">
+      <div className="p-3 sm:p-4 md:p-6" dir="rtl">
         <div className="flex justify-end mb-6">
           <Button onClick={() => setShowAdd(true)} size="sm">
             <Plus className="w-4 h-4" /> فرع جديد
@@ -103,15 +103,15 @@ export function BranchesClient({ branches: initialBranches, organizationId }: {
                       {branch.nameAr && <p className="text-xs text-slate-400 truncate">{branch.name}</p>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <Badge variant={branch.isActive ? "success" : "secondary"} className="whitespace-nowrap">
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Switch checked={branch.isActive} onCheckedChange={() => toggleBranch(branch.id, branch.isActive)} />
+                    <Badge variant={branch.isActive ? "success" : "secondary"} className="whitespace-nowrap text-xs">
                       {branch.isActive ? "نشط" : "معطل"}
                     </Badge>
-                    <Switch checked={branch.isActive} onCheckedChange={() => toggleBranch(branch.id, branch.isActive)} />
                     <button
                       onClick={() => deleteBranch(branch.id)}
                       disabled={deletingId === branch.id}
-                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
+                      className="h-7 w-7 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
                       title="حذف الفرع"
                     >
                       {deletingId === branch.id

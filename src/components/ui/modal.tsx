@@ -41,18 +41,18 @@ const ModalContent = React.forwardRef<
         "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
         "data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-48%",
         "data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-48%",
-        "w-full",
-        size === "sm" && "max-w-sm",
-        size === "md" && "max-w-lg",
-        size === "lg" && "max-w-2xl",
-        size === "xl" && "max-w-4xl",
+        "w-[calc(100%-2rem)] sm:w-full flex flex-col max-h-[90dvh]",
+        size === "sm" && "sm:max-w-sm",
+        size === "md" && "sm:max-w-lg",
+        size === "lg" && "sm:max-w-2xl",
+        size === "xl" && "sm:max-w-4xl",
         size === "full" && "max-w-[95vw] h-[95vh]",
         className
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors z-10">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
@@ -62,11 +62,11 @@ const ModalContent = React.forwardRef<
 ModalContent.displayName = DialogPrimitive.Content.displayName;
 
 const ModalHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col space-y-1 p-6 pb-4 border-b border-slate-100", className)} {...props} />
+  <div className={cn("flex flex-col space-y-1 p-4 sm:p-6 pb-3 sm:pb-4 border-b border-slate-100 flex-shrink-0", className)} {...props} />
 );
 
 const ModalFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex items-center justify-end gap-3 p-6 pt-4 border-t border-slate-100", className)} {...props} />
+  <div className={cn("flex items-center justify-end gap-2 sm:gap-3 p-4 sm:p-6 pt-3 sm:pt-4 border-t border-slate-100 flex-shrink-0 flex-wrap", className)} {...props} />
 );
 
 const ModalTitle = React.forwardRef<
@@ -94,7 +94,7 @@ const ModalDescription = React.forwardRef<
 ModalDescription.displayName = DialogPrimitive.Description.displayName;
 
 const ModalBody = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("p-6", className)} {...props} />
+  <div className={cn("p-4 sm:p-6 overflow-y-auto flex-1", className)} {...props} />
 );
 
 export {

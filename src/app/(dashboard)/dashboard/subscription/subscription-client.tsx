@@ -1,6 +1,11 @@
 "use client";
-import { useState } from "react";
-import { Check, Star, Zap, Crown, ArrowRight, Users, Store, UtensilsCrossed, AlertCircle, Phone, Mail } from "lucide-react";
+import { useState, useRef } from "react";
+import { useSearchParams } from "next/navigation";
+import {
+  Check, Star, Zap, Crown, AlertTriangle, Clock, CheckCircle,
+  Phone, Upload, X, Loader2, Copy, Building2,
+  ArrowRight, Shield, RefreshCw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Topbar } from "@/components/layout/topbar";
@@ -8,103 +13,184 @@ import { formatDate } from "@/lib/utils";
 import toast from "react-hot-toast";
 
 const STATUS_MAP = {
-  TRIALING: { label: "تجربة مجانية", color: "text-blue-600 bg-blue-50", icon: Zap },
-  ACTIVE: { label: "نشط", color: "text-green-600 bg-green-50", icon: Check },
-  PAST_DUE: { label: "متأخر", color: "text-red-600 bg-red-50", icon: AlertCircle },
-  CANCELED: { label: "ملغي", color: "text-slate-600 bg-slate-50", icon: AlertCircle },
-  INCOMPLETE: { label: "غير مكتمل", color: "text-amber-600 bg-amber-50", icon: AlertCircle },
-  PAUSED: { label: "موقوف", color: "text-orange-600 bg-orange-50", icon: AlertCircle },
+  TRIALING: { label: "تجربة مجانية", color: "text-blue-600 bg-blue-50", icon: Clock },
+  ACTIVE: { label: "نشط", color: "text-green-600 bg-green-50", icon: CheckCircle },
+  PAST_DUE: { label: "متأخر في الدفع", color: "text-red-600 bg-red-50", icon: AlertTriangle },
+  CANCELED: { label: "ملغي", color: "text-slate-600 bg-slate-50", icon: X },
+  INCOMPLETE: { label: "غير مكتمل", color: "text-amber-600 bg-amber-50", icon: AlertTriangle },
+  PAUSED: { label: "موقوف", color: "text-orange-600 bg-orange-50", icon: AlertTriangle },
 };
 
-const PLAN_ICONS = { BASIC: Zap, PRO: Star, PREMIUM: Crown };
+const PLANS = {
+  BASIC: {
+    name: "أساسي",
+    price: 1000,
+    color: "blue",
+    icon: Zap,
+    features: ["فرع واحد", "5 مستخدمين", "100 صنف", "نقطة البيع", "إدارة الطاولات", "تقارير أساسية"],
+  },
+  PRO: {
+    name: "احترافي",
+    price: 2500,
+    color: "purple",
+    icon: Star,
+    popular: true,
+    features: ["3 فروع", "20 مستخدم", "500 صنف", "كل ميزات الأساسي", "إدارة المخزون", "تقارير متقدمة", "دعم أولوي"],
+  },
+  PREMIUM: {
+    name: "بريميوم",
+    price: 5000,
+    color: "amber",
+    icon: Crown,
+    features: ["فروع غير محدودة", "مستخدمون غير محدودون", "أصناف غير محدودة", "كل ميزات الاحترافي", "مدير حساب مخصص", "دعم 24/7"],
+  },
+};
 
-const COUNTRIES = [
-  { code: "EG", label: "🇪🇬 مصر",       currency: "EGP", symbol: "ج.م", rate: 1    },
-  { code: "SA", label: "🇸🇦 السعودية",  currency: "SAR", symbol: "ر.س", rate: 1/14  },
-  { code: "AE", label: "🇦🇪 الإمارات",  currency: "AED", symbol: "د.إ", rate: 1/12  },
-  { code: "KW", label: "🇰🇼 الكويت",    currency: "KWD", symbol: "د.ك", rate: 1/100 },
-  { code: "US", label: "🇺🇸 الولايات المتحدة", currency: "USD", symbol: "$",   rate: 1/40  },
-];
+const BANK = {
+  iban: "EG620002039803980333000049873",
+  account: "3980333000049873",
+  swift: "BMISEGCXXXX",
+  name: "بنك مصر",
+  holder: "بسيطة للتقنية",
+};
 
-interface Plan {
-  name: string; nameEn: string; price: number; currency: string;
-  maxBranches: number; maxUsers: number; maxMenuItems: number;
-  features: string[]; isPopular?: boolean;
+const INSTAPAY_NUMBER = "+201090886364";
+
+interface SubscriptionClientProps {
+  subscription: { status: string; trialEnd: Date | null; currentPeriodEnd: Date | null; plan: { name: string; nameAr: string } | null } | null;
+  orgStats: { branches: number; users: number; menuItems: number };
+  pendingRequest: { id: string; status: string; planKey: string; createdAt: Date } | null;
 }
 
-export function SubscriptionClient({ subscription, plans, orgStats }: {
-  subscription: { status: string; trialEnd: Date | null; currentPeriodEnd: Date | null; plan: { name: string; nameAr: string } | null } | null;
-  plans: Record<string, Plan>;
-  orgStats: { branches: number; users: number; menuItems: number };
-}) {
-  const [countryCode, setCountryCode] = useState("EG");
+export function SubscriptionClient({ subscription, orgStats, pendingRequest }: SubscriptionClientProps) {
+  const searchParams = useSearchParams();
+  const isExpired = searchParams.get("expired") === "1";
 
-  async function handleManage() {
+  const [step, setStep] = useState<"plans" | "pay" | "done">("plans");
+  const [selectedPlan, setSelectedPlan] = useState<keyof typeof PLANS | null>(null);
+  const [payMethod, setPayMethod] = useState<"INSTAPAY" | "BANK_TRANSFER">("INSTAPAY");
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const statusConfig = subscription ? STATUS_MAP[subscription.status as keyof typeof STATUS_MAP] : null;
+  const StatusIcon = statusConfig?.icon || Clock;
+
+  function copyText(text: string) {
+    navigator.clipboard.writeText(text);
+    toast.success("تم النسخ");
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { toast.error("الملف كبير جداً (الحد 10 ميجا)"); return; }
+    setReceiptFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setReceiptPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  }
+
+  async function uploadAndSubmit() {
+    if (!receiptFile || !selectedPlan) return;
+    setIsUploading(true);
     try {
-      const res = await fetch("/api/subscription/portal", { method: "POST" });
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-    } catch {
-      toast.error("فشل فتح بوابة الإدارة");
+      const form = new FormData();
+      form.append("file", receiptFile);
+      const uploadRes = await fetch("/api/upload", { method: "POST", body: form });
+      if (!uploadRes.ok) throw new Error("فشل رفع الإيصال");
+      const { url } = await uploadRes.json();
+
+      setIsUploading(false);
+      setIsSubmitting(true);
+
+      const res = await fetch("/api/payment-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planKey: selectedPlan, method: payMethod, receiptUrl: url }),
+      });
+
+      if (!res.ok) throw new Error("فشل إرسال الطلب");
+      toast.success("تم إرسال طلب الاشتراك بنجاح!");
+      setStep("done");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "حدث خطأ");
+    } finally {
+      setIsUploading(false);
+      setIsSubmitting(false);
     }
   }
 
-  const statusConfig = subscription ? STATUS_MAP[subscription.status as keyof typeof STATUS_MAP] : null;
-  const StatusIcon = statusConfig?.icon || AlertCircle;
-  const country = COUNTRIES.find((c) => c.code === countryCode) ?? COUNTRIES[0];
-
-  function convertPrice(priceEgp: number) {
-    const converted = priceEgp * country.rate;
-    if (country.currency === "EGP") return Math.round(converted).toLocaleString("ar-EG");
-    if (country.rate < 0.05) return converted.toFixed(1);
-    return Math.round(converted).toLocaleString("ar-EG");
-  }
+  const planPrice = selectedPlan ? PLANS[selectedPlan].price : 0;
+  const planName = selectedPlan ? PLANS[selectedPlan].name : "";
 
   return (
     <main className="flex-1 overflow-auto">
       <Topbar title="الاشتراك" subtitle="إدارة خطة اشتراكك" />
 
-      <div className="p-6 space-y-6 max-w-5xl mx-auto" dir="rtl">
-        {/* Current Plan Status */}
-        {subscription && (
-          <Card className="border-blue-200 bg-gradient-to-l from-blue-50 to-white">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between flex-wrap gap-4">
-                <div>
-                  <div className={`inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1 rounded-full mb-3 ${statusConfig?.color}`}>
+      <div className="p-3 sm:p-4 md:p-6 max-w-4xl mx-auto space-y-5" dir="rtl">
+
+        {/* Expired Banner */}
+        {isExpired && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-red-800">انتهت فترة التجربة المجانية</p>
+              <p className="text-sm text-red-600 mt-0.5">يرجى الاشتراك لمواصلة استخدام التطبيق. خدمتك ستستمر 24 ساعة بعد رفع إيصال الدفع.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Pending request banner */}
+        {pendingRequest && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+            <Clock className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-amber-800">طلب قيد المراجعة</p>
+              <p className="text-sm text-amber-600">
+                طلب الاشتراك في باقة <strong>{PLANS[pendingRequest.planKey as keyof typeof PLANS]?.name}</strong> قيد المراجعة.
+                سيتم تفعيل اشتراكك خلال 24 ساعة.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Current status */}
+        {subscription && !isExpired && (
+          <Card>
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <div className={`inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full ${statusConfig?.color}`}>
                     <StatusIcon className="w-4 h-4" />
                     {statusConfig?.label}
                   </div>
-                  <h2 className="text-2xl font-bold text-slate-900">
-                    خطة {subscription.plan?.nameAr || subscription.plan?.name || "مجانية"}
-                  </h2>
-                  {subscription.status === "TRIALING" && subscription.trialEnd && (
-                    <p className="text-slate-500 mt-1">
-                      تنتهي التجربة المجانية: <span className="font-medium text-blue-600">{formatDate(subscription.trialEnd)}</span>
-                    </p>
-                  )}
-                  {subscription.status === "ACTIVE" && subscription.currentPeriodEnd && (
-                    <p className="text-slate-500 mt-1">
-                      تجديد الاشتراك: <span className="font-medium">{formatDate(subscription.currentPeriodEnd)}</span>
-                    </p>
-                  )}
+                  <span className="text-slate-700 font-semibold">
+                    خطة {subscription.plan?.nameAr || subscription.plan?.name || "تجريبية"}
+                  </span>
                 </div>
-                <Button variant="outline" onClick={handleManage}>
-                  إدارة الاشتراك <ArrowRight className="w-4 h-4" />
-                </Button>
+                {subscription.trialEnd && subscription.status === "TRIALING" && (
+                  <p className="text-sm text-slate-500">
+                    تنتهي التجربة: <span className="font-medium text-blue-600">{formatDate(subscription.trialEnd)}</span>
+                  </p>
+                )}
+                {subscription.currentPeriodEnd && subscription.status === "ACTIVE" && (
+                  <p className="text-sm text-slate-500">
+                    تجديد الاشتراك: <span className="font-medium">{formatDate(subscription.currentPeriodEnd)}</span>
+                  </p>
+                )}
               </div>
-
-              {/* Usage Stats */}
-              <div className="grid grid-cols-3 gap-4 mt-6">
+              <div className="grid grid-cols-3 gap-3 mt-4">
                 {[
-                  { icon: Store, label: "الفروع", value: orgStats.branches, color: "text-blue-600" },
-                  { icon: Users, label: "الموظفون", value: orgStats.users, color: "text-green-600" },
-                  { icon: UtensilsCrossed, label: "الأصناف", value: orgStats.menuItems, color: "text-purple-600" },
-                ].map((stat) => (
-                  <div key={stat.label} className="bg-white rounded-xl p-4 border border-slate-100">
-                    <stat.icon className={`w-5 h-5 ${stat.color} mb-2`} />
-                    <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-                    <p className="text-sm text-slate-500">{stat.label}</p>
+                  { label: "الفروع", value: orgStats.branches },
+                  { label: "الموظفون", value: orgStats.users },
+                  { label: "الأصناف", value: orgStats.menuItems },
+                ].map((s) => (
+                  <div key={s.label} className="bg-slate-50 rounded-xl p-3 text-center">
+                    <p className="text-xl font-bold text-slate-900">{s.value}</p>
+                    <p className="text-xs text-slate-500">{s.label}</p>
                   </div>
                 ))}
               </div>
@@ -112,138 +198,257 @@ export function SubscriptionClient({ subscription, plans, orgStats }: {
           </Card>
         )}
 
-        {/* Plans */}
-        <div>
-          <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
-            <h2 className="text-xl font-bold text-slate-900">اختر خطتك</h2>
-            {/* Country / currency selector */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-500">العملة:</span>
-              <select
-                value={countryCode}
-                onChange={(e) => setCountryCode(e.target.value)}
-                className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {COUNTRIES.map((c) => (
-                  <option key={c.code} value={c.code}>{c.label} — {c.currency}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {Object.entries(plans).map(([key, plan]) => {
-              const Icon = PLAN_ICONS[key as keyof typeof PLAN_ICONS] || Zap;
-              const isCurrentPlan = subscription?.plan?.name === plan.nameEn;
-              return (
-                <Card
-                  key={key}
-                  className={`relative overflow-hidden transition-all duration-200 hover:shadow-lg ${
-                    plan.isPopular ? "border-blue-500 shadow-blue-100 shadow-lg" : ""
-                  } ${isCurrentPlan ? "ring-2 ring-green-500" : ""}`}
-                >
-                  {plan.isPopular && (
-                    <div className="absolute top-0 inset-x-0 bg-blue-600 text-white text-xs font-semibold text-center py-1">
-                      الأكثر شيوعاً ⭐
-                    </div>
-                  )}
-                  {isCurrentPlan && (
-                    <div className="absolute top-0 inset-x-0 bg-green-500 text-white text-xs font-semibold text-center py-1">
-                      خطتك الحالية ✓
-                    </div>
-                  )}
-                  <CardContent className={`p-6 ${plan.isPopular || isCurrentPlan ? "pt-8" : ""}`}>
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${plan.isPopular ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"}`}>
+        {/* STEP 1: Choose plan */}
+        {step === "plans" && (
+          <>
+            <h2 className="text-lg font-bold text-slate-900">اختر الباقة المناسبة</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {(Object.entries(PLANS) as [keyof typeof PLANS, typeof PLANS[keyof typeof PLANS]][]).map(([key, plan]) => {
+                const Icon = plan.icon;
+                const isSelected = selectedPlan === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedPlan(key)}
+                    className={`relative text-right rounded-2xl border-2 p-5 transition-all duration-150 hover:shadow-md ${
+                      isSelected ? "border-blue-500 bg-blue-50 shadow-blue-100 shadow-lg" : "border-slate-200 bg-white hover:border-slate-300"
+                    }`}
+                  >
+                    {"popular" in plan && plan.popular && (
+                      <div className="absolute top-0 inset-x-0 bg-blue-600 text-white text-xs font-semibold text-center py-1 rounded-t-2xl">
+                        الأكثر شيوعاً ⭐
+                      </div>
+                    )}
+                    <div className={`mt-${("popular" in plan && plan.popular) ? "5" : "0"} flex items-center gap-2 mb-3`}>
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isSelected ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"}`}>
                         <Icon className="w-5 h-5" />
                       </div>
-                      <div>
-                        <p className="font-bold text-slate-900">{plan.name}</p>
-                        <p className="text-xs text-slate-400">{plan.nameEn}</p>
-                      </div>
+                      <span className="font-bold text-slate-900">{plan.name}</span>
+                      {isSelected && <Check className="w-4 h-4 text-blue-600 mr-auto" />}
                     </div>
-
-                    <div className="mb-5">
-                      <span className="text-4xl font-black text-slate-900">{convertPrice(plan.price)}</span>
-                      <span className="text-slate-500 mr-1">{country.symbol} / شهر</span>
+                    <div className="mb-4">
+                      <span className="text-3xl font-black text-slate-900">{plan.price.toLocaleString("ar-EG")}</span>
+                      <span className="text-slate-500 text-sm"> ج.م / شهر</span>
                     </div>
-
-                    <div className="space-y-2 mb-6">
-                      {plan.features.map((feature) => (
-                        <div key={feature} className="flex items-center gap-2.5 text-sm text-slate-600">
-                          <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
-                          {feature}
+                    <div className="space-y-1.5">
+                      {plan.features.map((f) => (
+                        <div key={f} className="flex items-center gap-2 text-xs text-slate-600">
+                          <Check className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                          {f}
                         </div>
                       ))}
                     </div>
+                  </button>
+                );
+              })}
+            </div>
 
-                    {/* Contact us instead of subscribe button */}
-                    <div className="space-y-2">
-                      <a
-                        href="tel:+201090886364"
-                        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
-                      >
-                        <Phone className="w-4 h-4" />
-                        تواصل معانا
-                      </a>
-                      <a
-                        href="mailto:ca.markode@gmail.com"
-                        className="flex items-center justify-center gap-2 w-full py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs transition-colors"
-                      >
-                        <Mail className="w-3.5 h-3.5" />
-                        ca.markode@gmail.com
-                      </a>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+            <div className="flex justify-end">
+              <Button
+                disabled={!selectedPlan}
+                onClick={() => setStep("pay")}
+                className="gap-2"
+              >
+                متابعة للدفع <ArrowRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </>
+        )}
 
-          {/* Contact banner */}
-          <div className="mt-6 bg-gradient-to-l from-blue-600 to-blue-700 rounded-2xl p-6 text-white flex flex-col sm:flex-row items-center justify-between gap-4">
+        {/* STEP 2: Payment */}
+        {step === "pay" && selectedPlan && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <button onClick={() => setStep("plans")} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+                ← العودة لاختيار الباقة
+              </button>
+            </div>
+
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-500">الباقة المختارة</p>
+                  <p className="font-bold text-slate-900 text-lg">{planName}</p>
+                </div>
+                <div className="text-left">
+                  <p className="text-sm text-slate-500">المبلغ</p>
+                  <p className="font-black text-2xl text-blue-700">{planPrice.toLocaleString("ar-EG")} ج.م</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Payment method tabs */}
             <div>
-              <p className="font-bold text-lg mb-1">هل تحتاج مساعدة في اختيار الخطة؟</p>
-              <p className="text-blue-100 text-sm">تواصل معنا وسنساعدك في إيجاد الخطة المناسبة لمطعمك</p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3 flex-shrink-0">
-              <a
-                href="tel:+201090886364"
-                className="flex items-center gap-2 bg-white text-blue-700 font-bold px-5 py-2.5 rounded-xl text-sm hover:bg-blue-50 transition-colors"
-              >
-                <Phone className="w-4 h-4" />
-                +201090886364
-              </a>
-              <a
-                href="mailto:ca.markode@gmail.com"
-                className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white font-medium px-5 py-2.5 rounded-xl text-sm transition-colors"
-              >
-                <Mail className="w-4 h-4" />
-                البريد الإلكتروني
-              </a>
-            </div>
-          </div>
-        </div>
-
-        {/* FAQ */}
-        <Card>
-          <CardHeader>
-            <CardTitle>أسئلة شائعة</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {[
-              { q: "كيف يمكنني الاشتراك؟", a: "تواصل معنا عبر الهاتف +201090886364 أو البريد الإلكتروني ca.markode@gmail.com وسنرتب لك الاشتراك مباشرة." },
-              { q: "هل يمكنني إلغاء الاشتراك في أي وقت؟", a: "نعم، يمكنك الإلغاء في أي وقت وسيستمر اشتراكك حتى نهاية الفترة المدفوعة." },
-              { q: "كيف يعمل التجربة المجانية؟", a: "تحصل على 14 يوماً مجاناً بكامل الميزات دون الحاجة إلى بطاقة ائتمانية." },
-              { q: "هل يمكنني الترقية أو التخفيض في الخطة؟", a: "نعم، يمكنك تغيير خطتك في أي وقت وسيتم حساب الفرق تلقائياً." },
-            ].map((faq) => (
-              <div key={faq.q} className="pb-4 border-b border-slate-100 last:border-0">
-                <p className="font-medium text-slate-800 mb-1">{faq.q}</p>
-                <p className="text-sm text-slate-500">{faq.a}</p>
+              <p className="font-semibold text-slate-800 mb-3">اختر طريقة الدفع</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setPayMethod("INSTAPAY")}
+                  className={`p-4 rounded-xl border-2 text-right transition-all ${payMethod === "INSTAPAY" ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:border-slate-300"}`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <Phone className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <span className="font-semibold text-slate-800">إنستاباي</span>
+                    {payMethod === "INSTAPAY" && <Check className="w-4 h-4 text-blue-500 mr-auto" />}
+                  </div>
+                  <p className="text-xs text-slate-500">دفع فوري عبر تطبيق InstaPay</p>
+                </button>
+                <button
+                  onClick={() => setPayMethod("BANK_TRANSFER")}
+                  className={`p-4 rounded-xl border-2 text-right transition-all ${payMethod === "BANK_TRANSFER" ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:border-slate-300"}`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-7 h-7 bg-green-100 rounded-lg flex items-center justify-center">
+                      <Building2 className="w-4 h-4 text-green-600" />
+                    </div>
+                    <span className="font-semibold text-slate-800">تحويل بنكي</span>
+                    {payMethod === "BANK_TRANSFER" && <Check className="w-4 h-4 text-blue-500 mr-auto" />}
+                  </div>
+                  <p className="text-xs text-slate-500">تحويل عبر البنك</p>
+                </button>
               </div>
-            ))}
-          </CardContent>
-        </Card>
+            </div>
+
+            {/* Payment details */}
+            {payMethod === "INSTAPAY" ? (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-blue-600" /> تعليمات InstaPay
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="bg-blue-50 rounded-xl p-4">
+                    <p className="text-sm text-slate-600 mb-2">حوّل المبلغ إلى رقم InstaPay التالي:</p>
+                    <div className="flex items-center justify-between bg-white rounded-lg p-3 border border-blue-200">
+                      <span className="text-xl font-bold text-blue-700 tracking-wide">{INSTAPAY_NUMBER}</span>
+                      <button onClick={() => copyText(INSTAPAY_NUMBER)} className="p-1.5 hover:bg-blue-50 rounded-lg transition-colors">
+                        <Copy className="w-4 h-4 text-slate-400" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 bg-amber-50 rounded-lg p-3 text-sm text-amber-700">
+                    <Shield className="w-4 h-4 flex-shrink-0" />
+                    <p>اكتب اسم الباقة في ملاحظات التحويل: <strong>بسيطة - {planName}</strong></p>
+                  </div>
+                  <ol className="text-sm text-slate-600 space-y-1.5 list-decimal list-inside">
+                    <li>افتح تطبيق InstaPay</li>
+                    <li>اختر "تحويل" وأدخل الرقم أعلاه</li>
+                    <li>أدخل المبلغ: <strong>{planPrice.toLocaleString("ar-EG")} ج.م</strong></li>
+                    <li>اكتب في الملاحظات: بسيطة - {planName}</li>
+                    <li>التقط لقطة شاشة بالإيصال وارفعها أدناه</li>
+                  </ol>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-green-600" /> بيانات التحويل البنكي
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {[
+                    { label: "اسم البنك", value: BANK.name },
+                    { label: "اسم صاحب الحساب", value: BANK.holder },
+                    { label: "رقم الحساب", value: BANK.account, copy: true },
+                    { label: "IBAN", value: BANK.iban, copy: true },
+                    { label: "SWIFT Code", value: BANK.swift, copy: true },
+                  ].map((row) => (
+                    <div key={row.label} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="text-xs text-slate-400 mb-0.5">{row.label}</p>
+                        <p className="text-sm font-mono font-semibold text-slate-800 truncate">{row.value}</p>
+                      </div>
+                      {row.copy && (
+                        <button onClick={() => copyText(row.value)} className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors flex-shrink-0">
+                          <Copy className="w-4 h-4 text-slate-400" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-2 bg-amber-50 rounded-lg p-3 text-sm text-amber-700 mt-2">
+                    <Shield className="w-4 h-4 flex-shrink-0" />
+                    <p>اكتب في بيان التحويل: <strong>بسيطة - {planName}</strong></p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Receipt upload */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Upload className="w-4 h-4 text-slate-600" /> رفع إيصال الدفع
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={handleFileChange} />
+
+                {!receiptFile ? (
+                  <button
+                    onClick={() => fileRef.current?.click()}
+                    className="w-full border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-blue-400 hover:bg-blue-50 transition-all"
+                  >
+                    <Upload className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm text-slate-500 font-medium">انقر لرفع الإيصال</p>
+                    <p className="text-xs text-slate-400 mt-1">صورة أو PDF - حجم أقصى 10 ميجا</p>
+                  </button>
+                ) : (
+                  <div className="relative">
+                    <img
+                      src={receiptPreview || ""}
+                      alt="إيصال الدفع"
+                      className="w-full max-h-48 object-contain rounded-xl border border-slate-200 bg-slate-50"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "";
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                    <div className="mt-2 flex items-center justify-between text-sm">
+                      <span className="text-slate-600 truncate">{receiptFile.name}</span>
+                      <button onClick={() => { setReceiptFile(null); setReceiptPreview(null); }} className="text-red-500 hover:text-red-700 flex items-center gap-1 text-xs">
+                        <X className="w-3.5 h-3.5" /> إزالة
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Button
+              className="w-full h-12 text-base"
+              disabled={!receiptFile || isUploading || isSubmitting}
+              onClick={uploadAndSubmit}
+            >
+              {(isUploading || isSubmitting) && <Loader2 className="w-4 h-4 animate-spin" />}
+              {isUploading ? "جاري رفع الإيصال..." : isSubmitting ? "جاري إرسال الطلب..." : "إرسال طلب الاشتراك"}
+            </Button>
+
+            <p className="text-center text-xs text-slate-400">
+              بعد الإرسال ستستمر الخدمة 24 ساعة ريثما تتم مراجعة الطلب وتفعيل الاشتراك
+            </p>
+          </div>
+        )}
+
+        {/* STEP 3: Done */}
+        {step === "done" && (
+          <Card className="border-green-200 bg-green-50">
+            <CardContent className="p-8 text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-green-600" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">تم إرسال طلبك بنجاح!</h3>
+              <p className="text-slate-600 mb-1">إيصالك في مرحلة المراجعة.</p>
+              <p className="text-sm text-slate-500 mb-6">ستستمر خدمتك لمدة <strong>24 ساعة</strong> ريثما يتم التحقق من الدفع وتفعيل الاشتراك.</p>
+              <div className="flex items-center justify-center gap-2 text-sm text-slate-500 bg-white rounded-xl p-3 border border-slate-200">
+                <RefreshCw className="w-4 h-4" />
+                <span>للمساعدة: <strong dir="ltr">+201090886364</strong></span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </main>
   );

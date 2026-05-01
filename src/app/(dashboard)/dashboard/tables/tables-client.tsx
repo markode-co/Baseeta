@@ -84,29 +84,30 @@ export function TablesClient({ tables: initialTables, branchId }: { tables: Tabl
 
   return (
     <main className="flex-1 overflow-auto">
-      <div className="bg-white border-b border-slate-200 px-6 py-4" dir="rtl">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-white border-b border-slate-200 px-3 sm:px-6 py-3 sm:py-4" dir="rtl">
+        <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">إدارة الطاولات</h1>
-            <p className="text-sm text-slate-500">{tables.length} طاولة</p>
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900">إدارة الطاولات</h1>
+            <p className="text-xs sm:text-sm text-slate-500">{tables.length} طاولة</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-shrink-0">
             <div className="flex bg-slate-100 rounded-lg p-1 overflow-hidden">
               <button
                 onClick={() => setViewMode("grid")}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === "grid" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"}`}
+                className={`px-2 sm:px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-colors ${viewMode === "grid" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"}`}
               >
                 شبكة
               </button>
               <button
                 onClick={() => setViewMode("floor")}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === "floor" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"}`}
+                className={`px-2 sm:px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-colors ${viewMode === "floor" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"}`}
               >
                 مخطط
               </button>
             </div>
             <Button size="sm" onClick={() => setShowAddTable(true)}>
-              <Plus className="w-4 h-4" /> طاولة جديدة
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">طاولة جديدة</span>
             </Button>
           </div>
         </div>
@@ -145,9 +146,9 @@ export function TablesClient({ tables: initialTables, branchId }: { tables: Tabl
         </div>
       </div>
 
-      <div className="p-6" dir="rtl">
+      <div className="p-3 sm:p-4 md:p-6" dir="rtl">
         {viewMode === "grid" ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-4">
             {filtered.map((table) => {
               const config = STATUS_CONFIG[table.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.AVAILABLE;
               const activeOrder = table.orders[0];

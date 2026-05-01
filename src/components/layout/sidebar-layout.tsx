@@ -9,10 +9,11 @@ interface SidebarLayoutProps {
   userRole?: string;
   userName?: string;
   notificationCount?: number;
+  isPlatformAdmin?: boolean;
 }
 
 export function SidebarLayout({
-  children, orgName, userRole, userName, notificationCount,
+  children, orgName, userRole, userName, notificationCount, isPlatformAdmin,
 }: SidebarLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -50,6 +51,7 @@ export function SidebarLayout({
         mobileOpen={mobileOpen}
         onToggleCollapse={toggleCollapse}
         onCloseMobile={() => setMobileOpen(false)}
+        isPlatformAdmin={isPlatformAdmin}
       />
 
       <div

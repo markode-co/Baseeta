@@ -96,47 +96,47 @@ export function InventoryClient({ items: initialItems, branchId }: { items: Inve
     <main className="flex-1 overflow-auto">
       <Topbar title="إدارة المخزون" subtitle="تتبع المواد والمستلزمات" />
 
-      <div className="p-6" dir="rtl">
+      <div className="p-3 sm:p-4 md:p-6" dir="rtl">
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
           <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
-                <Package className="w-5 h-5 text-blue-600" />
+            <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Package className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-900">{items.length}</p>
-                <p className="text-sm text-slate-500">إجمالي المواد</p>
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold text-slate-900">{items.length}</p>
+                <p className="text-xs sm:text-sm text-slate-500 truncate">إجمالي المواد</p>
               </div>
             </CardContent>
           </Card>
           <Card className={lowStockCount > 0 ? "border-red-200" : ""}>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
+            <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-red-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-red-600">{lowStockCount}</p>
-                <p className="text-sm text-slate-500">مخزون منخفض</p>
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold text-red-600">{lowStockCount}</p>
+                <p className="text-xs sm:text-sm text-slate-500 truncate">مخزون منخفض</p>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-green-600" />
+            <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-900">{formatCurrency(totalValue)}</p>
-                <p className="text-sm text-slate-500">قيمة المخزون</p>
+              <div className="min-w-0">
+                <p className="text-sm sm:text-xl font-bold text-slate-900 truncate">{formatCurrency(totalValue)}</p>
+                <p className="text-xs sm:text-sm text-slate-500 truncate">قيمة المخزون</p>
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Filters + Add */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="relative flex-1 max-w-xs">
+        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6 flex-wrap sm:flex-nowrap">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               value={searchQuery}

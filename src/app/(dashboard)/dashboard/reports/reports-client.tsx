@@ -118,9 +118,9 @@ export function ReportsClient({ data }: { data: ReportsData }) {
         }
       />
 
-      <div className="p-6 space-y-6" dir="rtl">
+      <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6" dir="rtl">
         {/* KPI Row */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
           {[
             { label: "مبيعات اليوم", value: formatCurrency(todayRevenue), sub: `${todayOrders} طلب`, icon: TrendingUp, color: "text-blue-600", bg: "bg-blue-50" },
             { label: "مبيعات الشهر", value: formatCurrency(monthRevenue), sub: `${monthOrders} طلب`, icon: Calendar, color: "text-green-600", bg: "bg-green-50" },
@@ -177,7 +177,7 @@ export function ReportsClient({ data }: { data: ReportsData }) {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Hourly distribution */}
           <div className="lg:col-span-2">
             <Card>

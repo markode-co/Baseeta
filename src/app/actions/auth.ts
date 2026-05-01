@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { hashPassword, verifyPassword, createSession, deleteSession, getSession } from "@/lib/auth";
+import { createPlatformSession } from "@/lib/platform-auth";
 import { slugify } from "@/lib/utils";
 
 const loginSchema = z.object({
@@ -28,6 +29,26 @@ export async function login(formData: FormData) {
   const parsed = loginSchema.safeParse(raw);
   if (!parsed.success) {
     return { error: "بيانات غير صحيحة" };
+  }
+
+  // Check for impersonation token in localStorage (client-side)
+  // This will be handled by a client-side script
+
+  // Platform super admin check
+  if (
+    parsed.data.email === process.env.PLATFORM_ADMIN_EMAIL &&
+    parsed.data.password === process.env.PLATFORM_ADMIN_PASSWORD
+  ) {
+    const token = await createPlatformSession();
+    const cookieStore = await cookies();
+    cookieStore.set("platform-token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 24 * 60 * 60,
+      path: "/",
+    });
+    redirect("/platform");
   }
 
   const user = await db.user.findFirst({
@@ -183,5 +204,11 @@ export async function logout() {
     await deleteSession(token);
     cookieStore.delete("auth-token");
   }
+  redirect("/login");
+}
+
+export async function platformLogout() {
+  const cookieStore = await cookies();
+  cookieStore.delete("platform-token");
   redirect("/login");
 }

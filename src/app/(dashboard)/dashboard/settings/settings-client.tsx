@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Building2, Globe, Percent, FileText, Save, Printer,
   Bluetooth, Wifi, Usb, Monitor, CheckCircle2, XCircle,
-  Loader2, RefreshCw, Link2, QrCode, Info,
+  Loader2, RefreshCw, Link2, QrCode, Info, ShieldCheck, ExternalLink,
 } from "lucide-react";
 import {
   type PrinterConfig, type PrinterType,
@@ -260,7 +260,7 @@ function PrinterSettings({ orgName }: { orgName: string }) {
 }
 
 // ── Main Component ──────────────────────────────────────────────────────────────
-export function SettingsClient({ org }: { org: Org }) {
+export function SettingsClient({ org, isPlatformAdmin }: { org: Org; isPlatformAdmin?: boolean }) {
   const [form, setForm] = useState({
     name: org.name, email: org.email, phone: org.phone || "",
     address: org.address || "", currency: org.currency, timezone: org.timezone,
@@ -305,6 +305,29 @@ export function SettingsClient({ org }: { org: Org }) {
       <Topbar title="الإعدادات" subtitle="إعدادات المطعم والنظام" />
 
       <div className="p-4 sm:p-6 max-w-3xl" dir="rtl">
+        {isPlatformAdmin && (
+          <Card className="mb-6 border-violet-200 bg-violet-50">
+            <CardContent className="flex items-center justify-between gap-4 p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-violet-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <ShieldCheck className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-violet-900 text-sm">لوحة التحكم الكاملة</p>
+                  <p className="text-xs text-violet-600">إدارة جميع الحسابات والاشتراكات على المنصة</p>
+                </div>
+              </div>
+              <a
+                href="/platform"
+                className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors flex-shrink-0"
+              >
+                <ExternalLink className="w-4 h-4" />
+                الدخول
+              </a>
+            </CardContent>
+          </Card>
+        )}
+
         <Tabs defaultValue="general">
           <TabsList className="mb-6 flex-wrap gap-1">
             <TabsTrigger value="general"><Building2 className="w-4 h-4" /> عام</TabsTrigger>

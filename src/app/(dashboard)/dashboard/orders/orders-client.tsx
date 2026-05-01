@@ -178,27 +178,28 @@ export function OrdersClient({ initialOrders, orgName = "بسيطة" }: { initia
     <main className="flex-1 overflow-auto">
       <Topbar title="إدارة الطلبات" subtitle="تتبع ومتابعة جميع الطلبات" />
 
-      <div className="p-6" dir="rtl">
+      <div className="p-3 sm:p-4 md:p-6" dir="rtl">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <div className="flex items-center justify-between mb-6">
-            <TabsList>
+          <div className="flex items-center gap-2 mb-4 sm:mb-6">
+            <TabsList className="flex-1 min-w-0">
               {TABS.map((tab) => (
                 <TabsTrigger key={tab} value={tab}>
                   {TAB_LABELS[tab]}
-                  <span className="mr-1.5 px-1.5 py-0.5 bg-slate-200 rounded-full text-xs">
+                  <span className="px-1.5 py-0.5 bg-slate-200 rounded-full text-xs">
                     {getTabCount(tab)}
                   </span>
                 </TabsTrigger>
               ))}
             </TabsList>
-            <Button variant="outline" size="sm">
-              <Filter className="w-4 h-4" /> تصفية
+            <Button variant="outline" size="sm" className="flex-shrink-0">
+              <Filter className="w-4 h-4" />
+              <span className="hidden sm:inline">تصفية</span>
             </Button>
           </div>
 
           {TABS.map((tab) => (
             <TabsContent key={tab} value={tab}>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
                 {filtered.length === 0 ? (
                   <div className="col-span-full text-center py-16 text-slate-400">
                     <ShoppingCart className="w-12 h-12 mx-auto mb-3 opacity-30" />
@@ -247,26 +248,28 @@ export function OrdersClient({ initialOrders, orgName = "بسيطة" }: { initia
                             <Button
                               variant="outline"
                               size="sm"
-                              className="flex-1"
+                              className="flex-1 min-w-0"
                               onClick={() => setSelectedOrder(order)}
                             >
-                              <Eye className="w-3.5 h-3.5" /> التفاصيل
+                              <Eye className="w-3.5 h-3.5 flex-shrink-0" />
+                              <span className="truncate">التفاصيل</span>
                             </Button>
                             {STATUS_FLOW[order.status] && (
                               <Button
                                 size="sm"
-                                className="flex-1"
+                                className="flex-1 min-w-0"
                                 loading={isUpdating === order.id}
                                 onClick={() => updateStatus(order.id, STATUS_FLOW[order.status])}
                               >
-                                <ChevronRight className="w-3.5 h-3.5" />
-                                {STATUS_CONFIG[STATUS_FLOW[order.status] as keyof typeof STATUS_CONFIG]?.label}
+                                <ChevronRight className="w-3.5 h-3.5 flex-shrink-0" />
+                                <span className="truncate">{STATUS_CONFIG[STATUS_FLOW[order.status] as keyof typeof STATUS_CONFIG]?.label}</span>
                               </Button>
                             )}
                             {order.status === "PENDING" && (
                               <Button
                                 variant="destructive"
-                                size="icon-sm"
+                                size="sm"
+                                className="flex-shrink-0 px-2.5"
                                 loading={isUpdating === order.id}
                                 onClick={() => updateStatus(order.id, "CANCELLED")}
                               >

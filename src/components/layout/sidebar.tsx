@@ -5,7 +5,7 @@ import {
   LayoutDashboard, ShoppingCart, UtensilsCrossed, ClipboardList,
   Table2, Users, BarChart3, CreditCard, Package, Settings,
   Utensils, ChevronLeft, Bell, LogOut, Store, X,
-  ChevronsLeft, ChevronsRight,
+  ChevronsLeft, ChevronsRight, ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logout } from "@/app/actions/auth";
@@ -35,6 +35,7 @@ interface SidebarProps {
   mobileOpen?: boolean;
   onToggleCollapse?: () => void;
   onCloseMobile?: () => void;
+  isPlatformAdmin?: boolean;
 }
 
 export function Sidebar({
@@ -46,6 +47,7 @@ export function Sidebar({
   mobileOpen = false,
   onToggleCollapse,
   onCloseMobile,
+  isPlatformAdmin = false,
 }: SidebarProps) {
   const pathname = usePathname();
 
@@ -139,6 +141,24 @@ export function Sidebar({
               </li>
             );
           })}
+
+          {isPlatformAdmin && (
+            <li className="pt-2 mt-2 border-t border-slate-700">
+              <Link
+                href="/platform"
+                onClick={onCloseMobile}
+                title={collapsed ? "لوحة التحكم الكاملة" : undefined}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150",
+                  collapsed && "md:justify-center md:px-0 md:py-3",
+                  "text-violet-400 hover:bg-violet-500/10 hover:text-violet-300",
+                )}
+              >
+                <ShieldCheck className="w-[18px] h-[18px] flex-shrink-0" />
+                <span className={cn(collapsed && "md:hidden")}>لوحة التحكم الكاملة</span>
+              </Link>
+            </li>
+          )}
         </ul>
       </nav>
 

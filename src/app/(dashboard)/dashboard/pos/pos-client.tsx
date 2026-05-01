@@ -398,7 +398,7 @@ export function POSClient({ categories, menuItems, tables, session }: {
   );
 
   return (
-    <div className="flex h-[100dvh] overflow-hidden bg-slate-50" dir="rtl">
+    <div className="flex h-[calc(100dvh-3.5rem)] md:h-[100dvh] overflow-hidden bg-slate-50" dir="rtl">
       {/* Desktop: side by side | Mobile: one at a time */}
       <div className={`flex-1 flex flex-col overflow-hidden ${mobileView === "cart" ? "hidden md:flex" : "flex"}`}>
         {MenuPanel}

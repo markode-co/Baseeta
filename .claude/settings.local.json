@@ -35,7 +35,8 @@
       "Bash(pnpm dev *)",
       "PowerShell(Get-Process node -ErrorAction SilentlyContinue)",
       "PowerShell(Stop-Process -Force)",
-      "PowerShell(netstat -ano)"
+      "PowerShell(netstat -ano)",
+      "Bash(Remove-Item \"d:\\\\Baseeta - Cashier\\\\src\\\\middleware.ts\" -Force)"
     ]
   }
 }

@@ -106,9 +106,9 @@ export default async function DashboardPage() {
         notificationCount={activeOrders}
       />
 
-      <div className="p-6 space-y-6" dir="rtl">
+      <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6" dir="rtl">
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
           <KpiCard
             title="مبيعات اليوم"
             value={formatCurrency(revenueToday)}
@@ -138,11 +138,11 @@ export default async function DashboardPage() {
           />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Recent Orders */}
           <div className="lg:col-span-2">
             <Card>
-              <CardHeader className="flex-row items-center justify-between pb-4">
+              <CardHeader className="flex-row items-center justify-between pb-3 sm:pb-4 px-4 sm:px-6 pt-4 sm:pt-6">
                 <CardTitle>أحدث الطلبات</CardTitle>
                 <Link href="/dashboard/orders" className="text-sm text-blue-600 hover:underline">
                   عرض الكل
@@ -265,9 +265,9 @@ function KpiCard({ title, value, change, icon, color, live }: {
 
   return (
     <Card>
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between mb-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colorMap[color]}`}>
+      <CardContent className="p-3 sm:p-5">
+        <div className="flex items-start justify-between mb-2 sm:mb-3">
+          <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center ${colorMap[color]}`}>
             {icon}
           </div>
           {live && (
@@ -283,8 +283,8 @@ function KpiCard({ title, value, change, icon, color, live }: {
             </div>
           )}
         </div>
-        <p className="text-2xl font-bold text-slate-900 mb-0.5">{value}</p>
-        <p className="text-sm text-slate-500">{title}</p>
+        <p className="text-xl sm:text-2xl font-bold text-slate-900 mb-0.5 truncate">{value}</p>
+        <p className="text-xs sm:text-sm text-slate-500">{title}</p>
       </CardContent>
     </Card>
   );

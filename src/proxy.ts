@@ -18,6 +18,22 @@ export async function proxy(request: NextRequest) {
   );
   if (isPublicFile) return NextResponse.next();
 
+  // Platform admin routes
+  if (pathname.startsWith("/platform")) {
+    const platformToken = request.cookies.get("platform-token")?.value;
+    if (!platformToken) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+    try {
+      await jwtVerify(platformToken, JWT_SECRET);
+      const requestHeaders = new Headers(request.headers);
+      requestHeaders.set("x-pathname", pathname);
+      return NextResponse.next({ request: { headers: requestHeaders } });
+    } catch {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+  }
+
   const isPublic = PUBLIC_PATHS.some(
     (p) => pathname === p || pathname.startsWith(p + "/")
   );
@@ -33,6 +49,7 @@ export async function proxy(request: NextRequest) {
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
     const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-pathname", pathname);
     requestHeaders.set("x-user-id", payload.userId as string);
     requestHeaders.set("x-org-id", payload.organizationId as string);
     requestHeaders.set("x-user-role", payload.role as string);

@@ -124,20 +124,22 @@ export function StaffClient({ staff, branches, organizationId }: {
 
   return (
     <main className="flex-1 overflow-auto">
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between" dir="rtl">
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between" dir="rtl">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">إدارة الموظفين</h1>
-          <p className="text-sm text-slate-500">{members.length} موظف</p>
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900">إدارة الموظفين</h1>
+          <p className="text-xs sm:text-sm text-slate-500">{members.length} موظف</p>
         </div>
         <Button size="sm" onClick={openAdd}>
-          <Plus className="w-4 h-4" /> موظف جديد
+          <Plus className="w-4 h-4" />
+          <span className="hidden sm:inline">موظف جديد</span>
+          <span className="sm:hidden">إضافة</span>
         </Button>
       </div>
 
-      <div className="p-6" dir="rtl">
+      <div className="p-3 sm:p-4 md:p-6" dir="rtl">
         {/* Filters */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="relative flex-1 max-w-xs">
+        <div className="flex flex-col sm:flex-row gap-3 mb-4 sm:mb-6">
+          <div className="relative flex-1 sm:max-w-xs">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               value={searchQuery}
@@ -146,10 +148,10 @@ export function StaffClient({ staff, branches, organizationId }: {
               className="w-full rounded-lg border border-slate-200 bg-white pr-9 pl-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-1.5 flex-wrap">
             <button
               onClick={() => setRoleFilter(null)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${!roleFilter ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"}`}
+              className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors ${!roleFilter ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"}`}
             >
               الكل
             </button>
@@ -157,7 +159,7 @@ export function StaffClient({ staff, branches, organizationId }: {
               <button
                 key={role}
                 onClick={() => setRoleFilter(role === roleFilter ? null : role)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${roleFilter === role ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"}`}
+                className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors ${roleFilter === role ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"}`}
               >
                 {config.label}
               </button>
@@ -166,7 +168,7 @@ export function StaffClient({ staff, branches, organizationId }: {
         </div>
 
         {/* Staff Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
           {filtered.map((member, idx) => {
             const roleConfig = ROLE_CONFIG[member.role as keyof typeof ROLE_CONFIG];
             const avatarColor = AVATAR_COLORS[idx % AVATAR_COLORS.length];
@@ -244,14 +246,14 @@ export function StaffClient({ staff, branches, organizationId }: {
             <ModalTitle>{editMember ? "تعديل بيانات الموظف" : "إضافة موظف جديد"}</ModalTitle>
           </ModalHeader>
           <ModalBody dir="rtl">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <Input label="الاسم الكامل" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="محمد أحمد" required />
               <Input label="رقم الجوال" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="05xxxxxxxx" type="tel" />
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <Input label="البريد الإلكتروني" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} type="email" placeholder="staff@restaurant.com" required />
               </div>
               {!editMember && (
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <Input label="كلمة المرور" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} type="password" placeholder="8 أحرف على الأقل" required />
                 </div>
               )}

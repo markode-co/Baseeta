@@ -27,11 +27,12 @@ model Organization {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  branches     Branch[]
-  users        User[]
-  subscription Subscription?
-  categories   Category[]
-  menuItems    MenuItem[]
+  branches        Branch[]
+  users           User[]
+  subscription    Subscription?
+  categories      Category[]
+  menuItems       MenuItem[]
+  paymentRequests PaymentRequest[]
 }
 
 // ─── SUBSCRIPTION ─────────────────────────────────────────────────────────────
@@ -83,6 +84,28 @@ enum SubStatus {
   CANCELED
   INCOMPLETE
   PAUSED
+}
+
+model PaymentRequest {
+  id             String   @id @default(cuid())
+  organizationId String
+  planKey        String
+  amount         Float
+  method         String   @default("INSTAPAY")
+  receiptUrl     String
+  status         String   @default("PENDING")
+  adminNote      String?
+  orgName        String
+  orgEmail       String
+  userName       String
+  userEmail      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([status])
 }
 
 // ─── BRANCH ───────────────────────────────────────────────────────────────────
@@ -415,3 +438,4 @@ model Shift {
   branch Branch @relation(fields: [branchId], references: [id])
   user   User   @relation(fields: [userId], references: [id])
 }
+

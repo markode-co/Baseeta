@@ -13,5 +13,10 @@ export default async function SettingsPage() {
 
   if (!org) redirect("/login");
 
-  return <SettingsClient org={org} />;
+  return (
+    <SettingsClient
+      org={org}
+      isPlatformAdmin={session.email === process.env.PLATFORM_ADMIN_EMAIL}
+    />
+  );
 }
