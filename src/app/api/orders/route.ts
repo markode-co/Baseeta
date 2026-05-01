@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { generateOrderNumber } from "@/lib/utils";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -12,12 +11,24 @@ export async function POST(req: NextRequest) {
 
   if (!items?.length) return NextResponse.json({ error: "No items" }, { status: 400 });
 
-  const orderNumber = generateOrderNumber();
   const resolvedBranchId = branchId || session.branchId;
 
   if (!resolvedBranchId) {
     return NextResponse.json({ error: "No branch selected" }, { status: 400 });
   }
+
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+
+  const todayCount = await db.order.count({
+    where: {
+      organizationId: session.organizationId,
+      branchId: resolvedBranchId,
+      createdAt: { gte: dayStart },
+    },
+  });
+
+  const orderNumber = String(todayCount + 1);
 
   const order = await db.order.create({
     data: {

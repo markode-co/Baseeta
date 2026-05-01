@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import { SplashScreen } from "@/components/splash-screen";
 import { PwaRegister } from "@/components/pwa-register";
+import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 
 const geist = Geist({
   variable: "--font-geist-sans",
@@ -38,10 +39,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-TileColor" content="#2563eb" />
         <meta name="msapplication-tap-highlight" content="no" />
+        {/* Capture beforeinstallprompt before React mounts */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          window.__pwaPrompt = null;
+          window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            window.__pwaPrompt = e;
+          });
+        `}} />
       </head>
       <body className="min-h-full">
         <SplashScreen />
         <PwaRegister />
+        <PwaInstallPrompt />
         {children}
         <Toaster
           position="top-center"

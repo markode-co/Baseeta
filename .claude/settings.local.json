@@ -6,7 +6,26 @@
       "PowerShell(New-Item -ItemType Directory -Path \"d:\\\\Baseeta - Cashier\\\\src\\\\app\\\\api\\\\upload\" -Force)",
       "PowerShell(New-Item -ItemType Directory -Path \"d:\\\\Baseeta - Cashier\\\\public\\\\uploads\" -Force)",
       "PowerShell(Get-ChildItem -Path \"d:\\\\Baseeta - Cashier\" -Recurse -Exclude node_modules | Where-Object { $_.Name -match 'download|badge|logo|store|app' -and $_.PSIsContainer -eq $false } | Select-Object FullName)",
-      "PowerShell(Get-ChildItem -Path \"d:\\\\Baseeta - Cashier\\\\public\" -File | Select-Object Name, @{Name='Size\\(KB\\)';Expression={$_.Length/1KB -as [int]}} | Format-Table -AutoSize)"
+      "PowerShell(Get-ChildItem -Path \"d:\\\\Baseeta - Cashier\\\\public\" -File | Select-Object Name, @{Name='Size\\(KB\\)';Expression={$_.Length/1KB -as [int]}} | Format-Table -AutoSize)",
+      "Bash(xargs ls *)",
+      "Bash(npx next *)",
+      "Bash(node -e \"const p=require\\('@prisma/client/generator-build/index.js'\\); console.log\\('ok'\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('exports', {}\\), indent=2\\)\\)\")",
+      "Bash(node -e \"const p=require\\('d:/Baseeta - Cashier/node_modules/@prisma/client/package.json'\\); console.log\\(JSON.stringify\\(p.imports||{}, null, 2\\)\\)\")",
+      "Bash(node -e \"const p=require\\('d:/Baseeta - Cashier/node_modules/.prisma/client/package.json'\\); console.log\\(JSON.stringify\\(p.imports||p.exports||{}, null, 2\\)\\)\")",
+      "Read(//d/Baseeta - Cachier/node_modules/.prisma/client/**)",
+      "Bash(node -e \"const d=JSON.parse\\(require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\)\\); const exp=d.exports||{}; Object.keys\\(exp\\).filter\\(k=>k.includes\\('runtime'\\)\\).forEach\\(k=>console.log\\(k,JSON.stringify\\(exp[k]\\)\\)\\)\")",
+      "Bash(node -e \"const c=require\\('d:/Baseeta - Cashier/node_modules/@prisma/client'\\); console.log\\(Object.keys\\(c\\).slice\\(0,10\\)\\)\")",
+      "Bash(node -e \"const p=require\\('d:/Baseeta - Cashier/node_modules/@prisma/client/package.json'\\); const e=p.exports; Object.keys\\(e\\).filter\\(k=>k.includes\\('runtime'\\)\\).forEach\\(k=>console.log\\(k,'->',JSON.stringify\\(e[k]\\)\\)\\)\")",
+      "Bash(node -e \"const p=require\\('d:/Baseeta - Cashier/node_modules/@prisma/client/package.json'\\); const e=p.exports; Object.keys\\(e\\).forEach\\(k=>console.log\\(k\\)\\)\")",
+      "Bash(node -e \"const p=require\\('d:/Baseeta - Cashier/node_modules/@prisma/client/package.json'\\); console.log\\(JSON.stringify\\(p.exports['./*']\\)\\)\")",
+      "Bash(node -e \"const c=require\\('d:/Baseeta - Cashier/node_modules/@prisma/client'\\); console.log\\('OK - exports:', Object.keys\\(c\\).slice\\(0,5\\)\\)\")",
+      "Bash(node --stack-trace-limit=30 node_modules/prisma/build/index.js generate)",
+      "Bash(node --stack-trace-limit=50 -e ' *)",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"console.log\\(process.version\\)\")",
+      "Bash(node -e \"const {execSync} = require\\('child_process'\\); console.log\\(execSync\\('node --version'\\).toString\\(\\).trim\\(\\)\\)\")",
+      "Bash(grep -c \"function fae\\(e,r\\){return Object.entries\\(e\\)\" \"d:/Baseeta - Cashier/node_modules/prisma/build/index.js\")"
     ]
   }
 }

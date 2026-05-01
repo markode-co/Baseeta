@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   ShoppingCart, Table2, BarChart3, Users, Package, Globe,
-  Check, Star, Zap, ChevronLeft, Utensils, ArrowLeft,
+  Check, Star, Zap, Utensils, ArrowLeft,
 } from "lucide-react";
 
 const FEATURES = [
@@ -248,23 +248,79 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-slate-900 text-slate-400 py-12 px-4">
+      <footer className="bg-slate-900 text-slate-400 py-14 px-4">
         <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
-                <Utensils className="w-5 h-5 text-white" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-10">
+            {/* Brand */}
+            <div className="lg:col-span-1">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
+                  <Utensils className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-xl font-bold text-white">بسيطة</span>
               </div>
-              <span className="text-xl font-bold text-white">بسيطة</span>
+              <p className="text-sm leading-relaxed text-slate-400">
+                نظام سحابي متكامل لإدارة المطاعم والكاشير. بسيط، سريع، وقوي.
+              </p>
             </div>
-            <div className="flex gap-6 text-sm">
-              {["الشروط والأحكام", "سياسة الخصوصية", "تواصل معنا"].map((link) => (
-                <a key={link} href="#" className="hover:text-white transition-colors">{link}</a>
-              ))}
+
+            {/* Product */}
+            <div>
+              <h4 className="text-white text-sm font-semibold mb-4">المنتج</h4>
+              <ul className="space-y-2.5 text-sm">
+                {[
+                  { href: "/#features",  label: "المميزات" },
+                  { href: "/#pricing",   label: "الأسعار" },
+                  { href: "/register",   label: "تجربة مجانية" },
+                  { href: "/login",      label: "تسجيل الدخول" },
+                ].map((l) => (
+                  <li key={l.href}>
+                    <Link href={l.href} className="hover:text-white transition-colors">{l.label}</Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Company */}
+            <div>
+              <h4 className="text-white text-sm font-semibold mb-4">الشركة</h4>
+              <ul className="space-y-2.5 text-sm">
+                {[
+                  { href: "/about",   label: "نبذة عنا" },
+                  { href: "/contact", label: "تواصل معنا" },
+                  { href: "/#testimonials", label: "آراء العملاء" },
+                ].map((l) => (
+                  <li key={l.href}>
+                    <Link href={l.href} className="hover:text-white transition-colors">{l.label}</Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Legal */}
+            <div>
+              <h4 className="text-white text-sm font-semibold mb-4">قانوني</h4>
+              <ul className="space-y-2.5 text-sm">
+                {[
+                  { href: "/terms",    label: "الشروط والأحكام" },
+                  { href: "/privacy",  label: "سياسة الخصوصية" },
+                  { href: "/security", label: "الأمان" },
+                ].map((l) => (
+                  <li key={l.href}>
+                    <Link href={l.href} className="hover:text-white transition-colors">{l.label}</Link>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
-          <div className="border-t border-slate-800 pt-8 text-center text-sm">
-            © 2026 بسيطة لأنظمة المطاعم. جميع الحقوق محفوظة.
+
+          <div className="border-t border-slate-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm">
+            <p>© 2026 بسيطة لأنظمة المطاعم. جميع الحقوق محفوظة.</p>
+            <div className="flex gap-4">
+              <Link href="/terms"    className="hover:text-white transition-colors">الشروط</Link>
+              <Link href="/privacy"  className="hover:text-white transition-colors">الخصوصية</Link>
+              <Link href="/security" className="hover:text-white transition-colors">الأمان</Link>
+            </div>
           </div>
         </div>
       </footer>

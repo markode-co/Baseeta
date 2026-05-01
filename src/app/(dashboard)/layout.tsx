@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { Sidebar } from "@/components/layout/sidebar";
+import { SidebarLayout } from "@/components/layout/sidebar-layout";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
@@ -18,16 +18,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
   ]);
 
   return (
-    <div className="flex min-h-screen bg-slate-50" dir="rtl">
-      <Sidebar
-        orgName={org?.name}
-        userRole={session.role}
-        userName={session.name}
-        notificationCount={pendingOrders}
-      />
-      <div className="flex-1 mr-64 flex flex-col min-h-screen">
-        {children}
-      </div>
-    </div>
+    <SidebarLayout
+      orgName={org?.name}
+      userRole={session.role}
+      userName={session.name}
+      notificationCount={pendingOrders}
+    >
+      {children}
+    </SidebarLayout>
   );
 }

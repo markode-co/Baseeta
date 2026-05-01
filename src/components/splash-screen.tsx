@@ -11,7 +11,7 @@ export function SplashScreen() {
     const t = setTimeout(() => {
       setVisible(false);
       sessionStorage.setItem("app-started", "1");
-    }, 1800);
+    }, 2500);
     return () => clearTimeout(t);
   }, []);
 
@@ -55,6 +55,11 @@ export function SplashScreen() {
             style={{ animationDelay: `${i * 150}ms`, opacity: 0.7 }}
           />
         ))}
+      </div>
+
+      {/* Loading text */}
+      <div className="absolute bottom-8 text-blue-200 text-xs">
+        جارٍ تحميل التطبيق...
       </div>
     </div>
   );

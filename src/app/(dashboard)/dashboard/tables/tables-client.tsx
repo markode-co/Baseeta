@@ -91,7 +91,7 @@ export function TablesClient({ tables: initialTables, branchId }: { tables: Tabl
             <p className="text-sm text-slate-500">{tables.length} طاولة</p>
           </div>
           <div className="flex gap-2">
-            <div className="flex bg-slate-100 rounded-lg p-1">
+            <div className="flex bg-slate-100 rounded-lg p-1 overflow-hidden">
               <button
                 onClick={() => setViewMode("grid")}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === "grid" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"}`}
