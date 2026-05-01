@@ -7,6 +7,11 @@ export default async function OrdersPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
+  const org = await db.organization.findUnique({
+    where: { id: session.organizationId },
+    select: { name: true },
+  });
+
   const orders = await db.order.findMany({
     where: {
       organizationId: session.organizationId,
@@ -21,5 +26,5 @@ export default async function OrdersPage() {
     take: 50,
   });
 
-  return <OrdersClient initialOrders={orders} />;
+  return <OrdersClient initialOrders={orders} orgName={org?.name || "بسيطة"} />;
 }

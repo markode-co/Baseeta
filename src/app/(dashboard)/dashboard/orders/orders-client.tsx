@@ -58,7 +58,7 @@ const TAB_LABELS: Record<string, string> = {
   ALL: "الكل", PENDING: "معلقة", PREPARING: "قيد التحضير", READY: "جاهزة", COMPLETED: "مكتملة", CANCELLED: "ملغاة"
 };
 
-export function OrdersClient({ initialOrders }: { initialOrders: Order[] }) {
+export function OrdersClient({ initialOrders, orgName = "بسيطة" }: { initialOrders: Order[]; orgName?: string }) {
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [activeTab, setActiveTab] = useState<string>("ALL");
