@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { Topbar } from "@/components/layout/topbar";
@@ -13,6 +13,7 @@ import {
   ShoppingCart, Eye, Printer, Filter
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { loadReceiptSettings } from "@/lib/printer";
 
 type OrderItem = { id: string; name: string; nameAr: string | null; quantity: number; price: number; total: number; notes: string | null; };
 type Table = { id: string; name: string; } | null;
@@ -63,6 +64,11 @@ export function OrdersClient({ initialOrders }: { initialOrders: Order[] }) {
   const [activeTab, setActiveTab] = useState<string>("ALL");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
+  const [receiptSettings, setReceiptSettings] = useState({ address: "", website: "", header: "" });
+
+  useEffect(() => {
+    setReceiptSettings(loadReceiptSettings());
+  }, []);
 
   const filtered = orders.filter((o) => {
     if (activeTab === "ALL") return true;
@@ -90,6 +96,10 @@ export function OrdersClient({ initialOrders }: { initialOrders: Order[] }) {
   }
 
   function printInvoice(order: Order) {
+    const { address, website, header } = receiptSettings;
+    const websiteDomain = website ? website.replace(/^https?:\/\//, "").replace(/\/$/, "") : "";
+    const qrUrl = website ? `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(website)}&margin=2` : "";
+    
     const html = `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -107,9 +117,11 @@ export function OrdersClient({ initialOrders }: { initialOrders: Order[] }) {
   </style>
 </head>
 <body>
+  ${header ? `<div class="c" style="margin-bottom:4px;font-size:11px;color:#555">${header}</div>` : ""}
   <div class="c">
     <div class="b" style="font-size:22px;margin-bottom:2px">بسيطة</div>
     <div style="font-size:11px;color:#555">نظام إدارة المطاعم</div>
+    ${address ? `<div style="font-size:10px;color:#666;margin-top:2px">${address}</div>` : ""}
   </div>
   <div class="hr"></div>
   <div class="c">
@@ -138,6 +150,13 @@ export function OrdersClient({ initialOrders }: { initialOrders: Order[] }) {
     <div class="b">شكراً لزيارتكم</div>
     <div style="color:#555;margin-top:3px">نتمنى أن تكونوا راضين عن خدمتنا</div>
   </div>
+  ${qrUrl ? `
+  <div class="hr"></div>
+  <div class="c">
+    <img src="${qrUrl}" width="80" height="80" style="display:block;margin:4px auto;" />
+    <div style="font-size:10px;color:#555">${websiteDomain}</div>
+  </div>
+  ` : ""}
 </body>
 </html>`;
 
