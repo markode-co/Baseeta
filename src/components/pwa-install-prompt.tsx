@@ -154,7 +154,18 @@ export function PwaInstallPrompt() {
       setTimeout(tryShow, 500);
     };
     window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+
+    // Listen for custom event to show prompt from anywhere
+    const showPromptHandler = () => {
+      setPlatform(getPlatform());
+      setShow(true);
+    };
+    window.addEventListener("show-pwa-prompt", showPromptHandler);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+      window.removeEventListener("show-pwa-prompt", showPromptHandler);
+    };
   }, []);
 
   const close = useCallback((permanent = false) => {

@@ -1,7 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import {
   ShoppingCart, Table2, BarChart3, Users, Package, Globe,
-  Check, Star, Zap, Utensils, ArrowLeft,
+  Check, Star, Zap, Utensils, ArrowLeft, Download,
 } from "lucide-react";
 
 const FEATURES = [
@@ -59,6 +61,15 @@ export default function LandingPage() {
             <a href="#testimonials" className="hover:text-blue-600 transition-colors">آراء العملاء</a>
           </div>
           <div className="flex items-center gap-3">
+            <button 
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('show-pwa-prompt'));
+              }}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg font-medium transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              تنزيل
+            </button>
             <Link href="/login" className="text-sm text-slate-600 hover:text-blue-600 font-medium transition-colors">
               تسجيل الدخول
             </Link>
@@ -89,6 +100,15 @@ export default function LandingPage() {
               ابدأ التجربة المجانية
               <ArrowLeft className="w-5 h-5" />
             </Link>
+            <button 
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('show-pwa-prompt'));
+              }}
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-green-600 text-white text-lg font-semibold rounded-xl hover:bg-green-700 transition-all shadow-lg shadow-green-200"
+            >
+              <Download className="w-5 h-5" />
+              تنزيل التطبيق
+            </button>
             <a href="#features" className="inline-flex items-center justify-center gap-2 px-8 py-4 border-2 border-slate-200 text-slate-700 text-lg font-semibold rounded-xl hover:border-blue-300 hover:text-blue-600 transition-all">
               اكتشف المميزات
             </a>
