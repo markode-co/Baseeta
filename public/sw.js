@@ -44,6 +44,9 @@ self.addEventListener("fetch", (e) => {
   if (
     url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/icons/") ||
+    url.pathname === "/icon" ||
+    url.pathname === "/icon2" ||
+    url.pathname === "/apple-icon" ||
     url.pathname.match(/\.(png|jpg|jpeg|svg|webp|woff2?|css)$/)
   ) {
     e.respondWith(

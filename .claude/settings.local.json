@@ -4,7 +4,9 @@
       "Bash(npx prisma *)",
       "Bash(echo \"EXIT: $?\")",
       "PowerShell(New-Item -ItemType Directory -Path \"d:\\\\Baseeta - Cashier\\\\src\\\\app\\\\api\\\\upload\" -Force)",
-      "PowerShell(New-Item -ItemType Directory -Path \"d:\\\\Baseeta - Cashier\\\\public\\\\uploads\" -Force)"
+      "PowerShell(New-Item -ItemType Directory -Path \"d:\\\\Baseeta - Cashier\\\\public\\\\uploads\" -Force)",
+      "PowerShell(Get-ChildItem -Path \"d:\\\\Baseeta - Cashier\" -Recurse -Exclude node_modules | Where-Object { $_.Name -match 'download|badge|logo|store|app' -and $_.PSIsContainer -eq $false } | Select-Object FullName)",
+      "PowerShell(Get-ChildItem -Path \"d:\\\\Baseeta - Cashier\\\\public\" -File | Select-Object Name, @{Name='Size\\(KB\\)';Expression={$_.Length/1KB -as [int]}} | Format-Table -AutoSize)"
     ]
   }
 }
