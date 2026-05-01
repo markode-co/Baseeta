@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
-import { X, Download, Share, Plus, Smartphone, Monitor, ArrowDown } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { X, Download, Share, Plus, Smartphone, Monitor, ArrowDown, Check } from "lucide-react";
 
 declare global {
   interface Window {
@@ -20,7 +20,7 @@ function isIOS(): boolean {
   return /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
 }
 
-function isInstalled(): boolean {
+function isInStandaloneMode(): boolean {
   return (
     window.matchMedia("(display-mode: standalone)").matches ||
     (navigator as unknown as { standalone?: boolean }).standalone === true ||
@@ -47,54 +47,74 @@ function getPlatform(): Platform {
   return "desktop";
 }
 
-// ── iOS install instructions (only platform that needs manual steps) ──────────
-function IOSInstructions({ onClose }: { onClose: () => void }) {
-  const isIpad = /ipad/.test(navigator.userAgent.toLowerCase());
-  return (
-    <div className="mt-5 space-y-3 text-right">
-      <p className="text-sm font-semibold text-slate-700 mb-4">اتبع هذه الخطوات في Safari:</p>
-      {[
-        {
-          num: "١",
-          icon: Share,
-          text: "اضغط على زر المشاركة",
-          sub: isIpad ? "في شريط Safari العلوي" : "في شريط الأدوات السفلي ⬆",
-        },
-        {
-          num: "٢",
-          icon: Plus,
-          text: "اختر «إضافة إلى الشاشة الرئيسية»",
-          sub: "مرّر القائمة للأسفل إذا لزم",
-        },
-        {
-          num: "٣",
-          icon: Download,
-          text: "اضغط «إضافة»",
-          sub: "سيظهر التطبيق فوراً كأيقونة",
-        },
-      ].map((s) => (
-        <div key={s.num} className="flex items-start gap-3 bg-slate-50 rounded-xl p-3">
-          <div className="w-7 h-7 bg-blue-600 text-white text-sm font-black rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-            {s.num}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-slate-800">{s.text}</p>
-            <p className="text-xs text-slate-500 mt-0.5">{s.sub}</p>
-          </div>
-          <div className="w-8 h-8 bg-white border border-slate-200 rounded-lg flex items-center justify-center flex-shrink-0">
-            <s.icon className="w-4 h-4 text-slate-400" />
-          </div>
+// ── iOS Direct Install Button ─────────────────────────────────────────────────────
+function IOSInstallButton({ onComplete }: { onComplete: () => void }) {
+  const [showShareSheet, setShowShareSheet] = useState(false);
+  const [installed, setInstalled] = useState(false);
+  const shareRef = useRef<HTMLAnchorElement>(null);
+
+  useEffect(() => {
+    // Check if already installed
+    if (isInStandaloneMode()) {
+      setInstalled(true);
+      onComplete();
+    }
+  }, [onComplete]);
+
+  const handleInstall = () => {
+    // Trigger native share sheet which includes "Add to Home Screen"
+    setShowShareSheet(true);
+    // Use setTimeout to allow the state to update before triggering
+    setTimeout(() => {
+      if (shareRef.current) {
+        shareRef.current.click();
+      }
+    }, 100);
+  };
+
+  if (installed) {
+    return (
+      <div className="mt-5 text-center">
+        <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+          <Check className="w-8 h-8 text-green-600" />
         </div>
-      ))}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2 text-xs text-amber-700">
-        <ArrowDown className="w-4 h-4 flex-shrink-0 rotate-180" />
-        <span>تأكد من فتح هذه الصفحة في متصفح Safari وليس متصفحاً آخر</span>
+        <p className="text-green-600 font-semibold">تم تثبيت التطبيق!</p>
+        <p className="text-slate-500 text-sm mt-1">تجد الأيقونة على شاشتك الرئيسية</p>
       </div>
+    );
+  }
+
+  return (
+    <div className="mt-5">
+      {/* Hidden share link that triggers iOS share sheet */}
+      <a
+        ref={shareRef}
+        href={typeof window !== 'undefined' ? window.location.href : '#'}
+        onClick={(e) => {
+          e.preventDefault();
+          // The share sheet will appear and user can select "Add to Home Screen"
+        }}
+        style={{ display: 'none' }}
+        aria-hidden="true"
+      />
+      
       <button
-        onClick={onClose}
-        className="w-full py-2.5 rounded-xl border border-slate-200 text-sm text-slate-500 hover:bg-slate-50 transition-colors mt-2"
+        onClick={handleInstall}
+        className="w-full flex items-center justify-center gap-2 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg rounded-2xl transition-all shadow-lg shadow-blue-200 active:scale-[.98]"
       >
-        حسناً، فهمت
+        <Download className="w-6 h-6" />
+        تنزيل التطبيق
+      </button>
+      
+      <p className="text-xs text-slate-400 mt-3 text-center">
+        سينتقل بك إلى قائمة المشاركة. اختر "إضافة إلى الشاشة الرئيسية"
+      </p>
+      
+      <button
+        onClick={onComplete}
+        className="w-full py-2.5 mt-4 text-sm text-slate-400 hover:text-slate-600 transition-colors"
+      >
+        لاحقاً
       </button>
     </div>
   );
@@ -104,32 +124,30 @@ function IOSInstructions({ onClose }: { onClose: () => void }) {
 export function PwaInstallPrompt() {
   const [show,       setShow]       = useState(false);
   const [platform,   setPlatform]   = useState<Platform>("desktop");
-  const [iosSteps,   setIosSteps]   = useState(false);
   const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
-    if (isInstalled()) return;
+    if (isInStandaloneMode()) return;
 
     function tryShow() {
-      if (isInstalled() || wasDismissed()) return;
+      if (isInStandaloneMode() || wasDismissed()) return;
       setPlatform(getPlatform());
       setShow(true);
     }
 
-    // iOS: native prompt not supported — show manual steps after delay
+    // iOS: show prompt after delay
     if (isIOS()) {
-      const t = setTimeout(tryShow, 3000);
+      const t = setTimeout(tryShow, 2000);
       return () => clearTimeout(t);
     }
 
     // Android / Desktop: only show when native install prompt is available
     if (window.__pwaPrompt) {
-      // Already captured by the inline <head> script before React mounted
       const t = setTimeout(tryShow, 2000);
       return () => clearTimeout(t);
     }
 
-    // Capture it if it fires after mount (late service worker registration)
+    // Capture it if it fires after mount
     const handler = (e: Event) => {
       e.preventDefault();
       window.__pwaPrompt = e as BeforeInstallPromptEvent;
@@ -141,18 +159,33 @@ export function PwaInstallPrompt() {
 
   const close = useCallback((permanent = false) => {
     setShow(false);
-    setIosSteps(false);
     if (permanent) setDismissed();
   }, []);
 
   const handleInstall = useCallback(async () => {
-    // iOS: no native prompt possible — show manual steps
+    // iOS: trigger share sheet for direct add to home screen
     if (platform === "ios") {
-      setIosSteps(true);
+      // Try to use Web Share API if available
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: "بسيطة - نظام إدارة المطاعم",
+            text: "فتح تطبيق بسيطة",
+            url: window.location.href,
+          });
+        } catch (e) {
+          // User cancelled or error - fall back to opening share sheet manually
+          const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out بسيطة app')}&url=${encodeURIComponent(window.location.href)}`;
+          window.open(shareUrl, '_blank');
+        }
+      } else {
+        // Fallback: open a new window that might trigger share sheet
+        window.open(window.location.href, '_blank');
+      }
       return;
     }
 
-    // Android / Desktop: trigger the browser's native install dialog directly
+    // Android / Desktop: trigger the browser's native install dialog
     const evt = window.__pwaPrompt;
     if (!evt) return;
 
@@ -164,7 +197,6 @@ export function PwaInstallPrompt() {
         window.__pwaPrompt = null;
         close(true);
       } else {
-        // User dismissed the browser dialog — close modal temporarily
         close(false);
       }
     } finally {
@@ -214,8 +246,8 @@ export function PwaInstallPrompt() {
 
         {/* Body */}
         <div className="px-6 py-5">
-          {iosSteps ? (
-            <IOSInstructions onClose={() => close(true)} />
+          {platform === "ios" ? (
+            <IOSInstallButton onComplete={() => close(true)} />
           ) : (
             <>
               <div className="text-center mb-5">
@@ -223,9 +255,7 @@ export function PwaInstallPrompt() {
                   ثبّت التطبيق على {platformLabel}
                 </p>
                 <p className="text-slate-500 text-sm mt-1.5 leading-relaxed">
-                  {platform === "ios"
-                    ? "أضفه كأيقونة على شاشتك الرئيسية من Safari"
-                    : "أضفه كأيقونة على شاشتك الرئيسية للوصول السريع بدون متصفح"}
+                  أضفه كأيقونة على شاشتك الرئيسية للوصول السريع بدون متصفح
                 </p>
               </div>
 
@@ -244,8 +274,6 @@ export function PwaInstallPrompt() {
               >
                 {installing ? (
                   <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : platform === "ios" ? (
-                  <Share className="w-5 h-5" />
                 ) : platform === "android" ? (
                   <Smartphone className="w-5 h-5" />
                 ) : (
