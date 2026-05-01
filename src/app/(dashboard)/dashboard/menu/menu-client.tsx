@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Edit, Trash2, Eye, EyeOff, Star, Package, Tag, ChefHat } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Eye, EyeOff, Star, Package, Tag, ChefHat, Upload, X as XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -36,9 +36,10 @@ export function MenuClient({ categories, menuItems, organizationId }: {
 
   const [itemForm, setItemForm] = useState({
     name: "", nameAr: "", description: "", price: "", cost: "",
-    categoryId: "", preparationTime: "", isAvailable: true, isFeatured: false,
+    categoryId: "", preparationTime: "", isAvailable: true, isFeatured: false, image: "",
   });
   const [catForm, setCatForm] = useState({ name: "", nameAr: "", color: "#3b82f6" });
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const filtered = items.filter((item) => {
     const matchCat = !selectedCategory || item.categoryId === selectedCategory;
@@ -48,7 +49,7 @@ export function MenuClient({ categories, menuItems, organizationId }: {
   });
 
   function openAddItem() {
-    setItemForm({ name: "", nameAr: "", description: "", price: "", cost: "", categoryId: categories[0]?.id || "", preparationTime: "", isAvailable: true, isFeatured: false });
+    setItemForm({ name: "", nameAr: "", description: "", price: "", cost: "", categoryId: categories[0]?.id || "", preparationTime: "", isAvailable: true, isFeatured: false, image: "" });
     setEditItem(null);
     setShowAddItem(true);
   }
@@ -58,7 +59,7 @@ export function MenuClient({ categories, menuItems, organizationId }: {
       name: item.name, nameAr: item.nameAr || "", description: item.description || "",
       price: String(item.price), cost: String(item.cost || ""),
       categoryId: item.categoryId, preparationTime: String(item.preparationTime || ""),
-      isAvailable: item.isAvailable, isFeatured: item.isFeatured,
+      isAvailable: item.isAvailable, isFeatured: item.isFeatured, image: item.image || "",
     });
     setEditItem(item);
     setShowAddItem(true);
@@ -143,6 +144,28 @@ export function MenuClient({ categories, menuItems, organizationId }: {
       toast.error("حدث خطأ");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: null }));
+        throw new Error(error ?? "فشل رفع الصورة");
+      }
+      const { url } = await res.json();
+      setItemForm((prev) => ({ ...prev, image: url }));
+      toast.success("تم رفع الصورة");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "فشل رفع الصورة");
+    } finally {
+      setIsUploadingImage(false);
     }
   }
 
@@ -306,12 +329,38 @@ export function MenuClient({ categories, menuItems, organizationId }: {
                   </SelectContent>
                 </Select>
               </div>
-              <Input label="السعر (ر.س)" type="number" value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} placeholder="0.00" required />
-              <Input label="التكلفة (ر.س)" type="number" value={itemForm.cost} onChange={(e) => setItemForm({ ...itemForm, cost: e.target.value })} placeholder="0.00" />
+              <Input label="السعر (ج.م)" type="number" value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} placeholder="0.00" required />
+              <Input label="التكلفة (ج.م)" type="number" value={itemForm.cost} onChange={(e) => setItemForm({ ...itemForm, cost: e.target.value })} placeholder="0.00" />
               <Input label="وقت التحضير (دقيقة)" type="number" value={itemForm.preparationTime} onChange={(e) => setItemForm({ ...itemForm, preparationTime: e.target.value })} placeholder="10" />
               <div className="col-span-2">
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">الوصف</label>
                 <textarea value={itemForm.description} onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })} placeholder="وصف مختصر للصنف..." rows={2} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">صورة الصنف</label>
+                <div className="flex items-center gap-3">
+                  <div className="w-20 h-20 bg-slate-100 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0 border border-slate-200">
+                    {itemForm.image ? (
+                      <img src={itemForm.image} alt="preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <ChefHat className="w-8 h-8 text-slate-300" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-1.5">
+                    <label className="cursor-pointer block">
+                      <div className={`flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-dashed rounded-lg text-sm transition-colors ${isUploadingImage ? "border-blue-300 bg-blue-50 text-blue-500" : "border-slate-300 text-slate-600 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600"}`}>
+                        <Upload className="w-4 h-4" />
+                        {isUploadingImage ? "جاري الرفع..." : "رفع صورة"}
+                      </div>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isUploadingImage} />
+                    </label>
+                    {itemForm.image && (
+                      <button onClick={() => setItemForm((prev) => ({ ...prev, image: "" }))} className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700">
+                        <XIcon className="w-3 h-3" /> إزالة الصورة
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <Switch checked={itemForm.isAvailable} onCheckedChange={(v) => setItemForm({ ...itemForm, isAvailable: v })} />

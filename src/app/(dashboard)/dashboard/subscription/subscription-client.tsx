@@ -152,7 +152,7 @@ export function SubscriptionClient({ subscription, plans, orgStats }: {
 
                     <div className="mb-5">
                       <span className="text-4xl font-black text-slate-900">{plan.price}</span>
-                      <span className="text-slate-500 mr-1">ر.س / شهر</span>
+                      <span className="text-slate-500 mr-1">ج.م / شهر</span>
                     </div>
 
                     <div className="space-y-2 mb-6">

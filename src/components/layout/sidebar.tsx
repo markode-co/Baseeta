@@ -27,9 +27,10 @@ interface SidebarProps {
   orgName?: string;
   userRole?: string;
   userName?: string;
+  notificationCount?: number;
 }
 
-export function Sidebar({ orgName = "المطعم", userRole = "ADMIN", userName = "المستخدم" }: SidebarProps) {
+export function Sidebar({ orgName = "المطعم", userRole = "ADMIN", userName = "المستخدم", notificationCount = 0 }: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -84,9 +85,14 @@ export function Sidebar({ orgName = "المطعم", userRole = "ADMIN", userName
             <p className="text-slate-200 text-sm font-medium truncate">{userName}</p>
             <p className="text-slate-500 text-xs">{userRole}</p>
           </div>
-          <button className="text-slate-500 hover:text-slate-300 transition-colors">
+          <Link href="/dashboard/orders" className="relative text-slate-500 hover:text-slate-300 transition-colors">
             <Bell className="w-4 h-4" />
-          </button>
+            {notificationCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                {notificationCount > 9 ? "9+" : notificationCount}
+              </span>
+            )}
+          </Link>
         </div>
         <form action={logout}>
           <button

@@ -5,15 +5,15 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number, currency = "SAR"): string {
-  return new Intl.NumberFormat("ar-SA", {
+export function formatCurrency(amount: number, currency = "EGP"): string {
+  return new Intl.NumberFormat("ar-EG-u-nu-latn", {
     style: "currency",
     currency,
     minimumFractionDigits: 2,
   }).format(amount);
 }
 
-export function formatDate(date: Date | string, locale = "ar-SA"): string {
+export function formatDate(date: Date | string, locale = "ar-EG"): string {
   return new Intl.DateTimeFormat(locale, {
     year: "numeric",
     month: "long",
@@ -21,7 +21,7 @@ export function formatDate(date: Date | string, locale = "ar-SA"): string {
   }).format(new Date(date));
 }
 
-export function formatDateTime(date: Date | string, locale = "ar-SA"): string {
+export function formatDateTime(date: Date | string, locale = "ar-EG"): string {
   return new Intl.DateTimeFormat(locale, {
     year: "numeric",
     month: "short",

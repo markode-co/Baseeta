@@ -46,6 +46,12 @@ const TYPE_LABEL: Record<string, string> = {
   DELIVERY: "توصيل",
 };
 
+const PAYMENT_LABEL: Record<string, string> = {
+  CASH: "نقداً",
+  CARD: "بطاقة بنكية",
+  INSTAPAY: "إنستاباي",
+};
+
 const TABS = ["ALL", "PENDING", "PREPARING", "READY", "COMPLETED", "CANCELLED"] as const;
 const TAB_LABELS: Record<string, string> = {
   ALL: "الكل", PENDING: "معلقة", PREPARING: "قيد التحضير", READY: "جاهزة", COMPLETED: "مكتملة", CANCELLED: "ملغاة"
@@ -81,6 +87,66 @@ export function OrdersClient({ initialOrders }: { initialOrders: Order[] }) {
     } finally {
       setIsUpdating(null);
     }
+  }
+
+  function printInvoice(order: Order) {
+    const html = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8"/>
+  <title>فاتورة #${order.orderNumber}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Courier New',monospace;font-size:13px;color:#000;width:80mm;margin:0 auto;padding:12px}
+    .c{text-align:center}
+    .b{font-weight:bold}
+    .hr{border-top:1px dashed #000;margin:8px 0}
+    .row{display:flex;justify-content:space-between;align-items:flex-start;margin:3px 0}
+    .note{font-size:11px;color:#444;padding-right:10px;margin-bottom:2px}
+    @media print{body{width:80mm}@page{size:80mm auto;margin:0}}
+  </style>
+</head>
+<body>
+  <div class="c">
+    <div class="b" style="font-size:22px;margin-bottom:2px">بسيطة</div>
+    <div style="font-size:11px;color:#555">نظام إدارة المطاعم</div>
+  </div>
+  <div class="hr"></div>
+  <div class="c">
+    <div class="b" style="font-size:15px">فاتورة #${order.orderNumber}</div>
+    <div style="font-size:11px;margin-top:2px">${formatDateTime(order.createdAt)}</div>
+    <div style="margin-top:3px">${order.table ? `طاولة: ${order.table.name}` : TYPE_LABEL[order.type] || order.type}</div>
+    ${order.customerName ? `<div>العميل: ${order.customerName}</div>` : ""}
+  </div>
+  <div class="hr"></div>
+  ${order.items.map((item) => `
+    <div class="row">
+      <span>${item.nameAr || item.name} × ${item.quantity}</span>
+      <span>${formatCurrency(item.total)}</span>
+    </div>
+    ${item.notes ? `<div class="note">↳ ${item.notes}</div>` : ""}
+  `).join("")}
+  <div class="hr"></div>
+  <div class="row"><span>المجموع الفرعي</span><span>${formatCurrency(order.subtotal)}</span></div>
+  ${order.discount > 0 ? `<div class="row"><span>الخصم</span><span>- ${formatCurrency(order.discount)}</span></div>` : ""}
+  <div class="row"><span>ضريبة القيمة المضافة (15%)</span><span>${formatCurrency(order.tax)}</span></div>
+  <div class="hr"></div>
+  <div class="row b" style="font-size:15px"><span>الإجمالي</span><span>${formatCurrency(order.total)}</span></div>
+  ${order.paymentMethod ? `<div class="row" style="margin-top:4px"><span>طريقة الدفع</span><span>${PAYMENT_LABEL[order.paymentMethod] || order.paymentMethod}</span></div>` : ""}
+  <div class="hr"></div>
+  <div class="c" style="margin-top:6px;font-size:12px">
+    <div class="b">شكراً لزيارتكم</div>
+    <div style="color:#555;margin-top:3px">نتمنى أن تكونوا راضين عن خدمتنا</div>
+  </div>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank", "width=420,height=650");
+    if (!win) { toast.error("يرجى السماح بفتح النوافذ المنبثقة"); return; }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); win.close(); }, 400);
   }
 
   function getTabCount(tab: string) {
@@ -255,8 +321,8 @@ export function OrdersClient({ initialOrders }: { initialOrders: Order[] }) {
             )}
           </ModalBody>
           <ModalFooter>
-            <Button variant="outline" size="sm">
-              <Printer className="w-4 h-4" /> طباعة
+            <Button variant="outline" size="sm" onClick={() => selectedOrder && printInvoice(selectedOrder)}>
+              <Printer className="w-4 h-4" /> طباعة الفاتورة
             </Button>
             {selectedOrder && STATUS_FLOW[selectedOrder.status] && (
               <Button

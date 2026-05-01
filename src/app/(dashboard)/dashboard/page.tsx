@@ -103,6 +103,7 @@ export default async function DashboardPage() {
       <Topbar
         title={`مرحباً، ${session.name} 👋`}
         subtitle={new Date().toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+        notificationCount={activeOrders}
       />
 
       <div className="p-6 space-y-6" dir="rtl">

@@ -8,7 +8,10 @@ export default async function InventoryPage() {
   if (!session) redirect("/login");
 
   const items = await db.inventoryItem.findMany({
-    where: { branchId: session.branchId ?? "" },
+    where: {
+      branch: { organizationId: session.organizationId },
+      ...(session.branchId ? { branchId: session.branchId } : {}),
+    },
     include: {
       transactions: { orderBy: { createdAt: "desc" }, take: 5 },
     },

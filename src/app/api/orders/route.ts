@@ -55,9 +55,12 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Update table status if dine-in
+  // Update table status if dine-in — scoped to org for safety
   if (type === "DINE_IN" && tableId) {
-    await db.table.update({ where: { id: tableId }, data: { status: "OCCUPIED" } });
+    await db.table.update({
+      where: { id: tableId, branch: { organizationId: session.organizationId } },
+      data: { status: "OCCUPIED" },
+    });
   }
 
   return NextResponse.json({ id: order.id, orderNumber: order.orderNumber });

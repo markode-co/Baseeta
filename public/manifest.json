@@ -1,0 +1,47 @@
+{
+  "name": "بسيطة | نظام إدارة المطاعم",
+  "short_name": "بسيطة",
+  "description": "نظام سحابي متكامل لإدارة المطاعم والكاشير - بسيط، سريع، وقوي",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#2563eb",
+  "theme_color": "#2563eb",
+  "lang": "ar",
+  "dir": "rtl",
+  "categories": ["business", "productivity", "food"],
+  "icons": [
+    {
+      "src": "/icon",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/apple-icon",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "الكاشير",
+      "short_name": "POS",
+      "url": "/dashboard/pos",
+      "icons": [{ "src": "/icon", "sizes": "512x512" }]
+    },
+    {
+      "name": "الطلبات",
+      "short_name": "Orders",
+      "url": "/dashboard/orders",
+      "icons": [{ "src": "/icon", "sizes": "512x512" }]
+    }
+  ]
+}

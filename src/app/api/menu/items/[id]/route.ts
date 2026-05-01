@@ -19,6 +19,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       cost: body.cost !== undefined ? body.cost : undefined,
       categoryId: body.categoryId,
       preparationTime: body.preparationTime !== undefined ? body.preparationTime : undefined,
+      image: body.image !== undefined ? body.image || null : undefined,
       isAvailable: body.isAvailable !== undefined ? body.isAvailable : undefined,
       isFeatured: body.isFeatured !== undefined ? body.isFeatured : undefined,
     },

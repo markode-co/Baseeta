@@ -1,10 +1,12 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ─── ORGANIZATION (TENANT) ────────────────────────────────────────────────────
@@ -17,8 +19,8 @@ model Organization {
   email         String
   phone         String?
   address       String?
-  currency      String   @default("SAR")
-  timezone      String   @default("Asia/Riyadh")
+  currency      String   @default("EGP")
+  timezone      String   @default("Africa/Cairo")
   locale        String   @default("ar")
   taxRate       Float    @default(0.15)
   receiptFooter String?
@@ -41,7 +43,7 @@ model Plan {
   description   String?
   descriptionAr String?
   price         Float
-  currency      String   @default("SAR")
+  currency      String   @default("EGP")
   interval      String   @default("month")
   stripePriceId String?  @unique
   maxBranches   Int      @default(1)

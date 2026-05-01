@@ -15,8 +15,8 @@ type Org = {
   taxRate: number; receiptFooter: string | null;
 };
 
-const CURRENCIES = [{ value: "SAR", label: "ريال سعودي (SAR)" }, { value: "AED", label: "درهم إماراتي (AED)" }, { value: "KWD", label: "دينار كويتي (KWD)" }, { value: "USD", label: "دولار أمريكي (USD)" }];
-const TIMEZONES = [{ value: "Asia/Riyadh", label: "الرياض (GMT+3)" }, { value: "Asia/Dubai", label: "دبي (GMT+4)" }, { value: "Asia/Kuwait", label: "الكويت (GMT+3)" }];
+const CURRENCIES = [{ value: "EGP", label: "جنيه مصري (EGP)" }, { value: "SAR", label: "ريال سعودي (SAR)" }, { value: "AED", label: "درهم إماراتي (AED)" }, { value: "KWD", label: "دينار كويتي (KWD)" }, { value: "USD", label: "دولار أمريكي (USD)" }];
+const TIMEZONES = [{ value: "Africa/Cairo", label: "القاهرة (GMT+2)" }, { value: "Asia/Riyadh", label: "الرياض (GMT+3)" }, { value: "Asia/Dubai", label: "دبي (GMT+4)" }, { value: "Asia/Kuwait", label: "الكويت (GMT+3)" }];
 
 export function SettingsClient({ org }: { org: Org }) {
   const [form, setForm] = useState({

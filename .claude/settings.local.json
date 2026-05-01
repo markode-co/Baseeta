@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx prisma *)",
+      "Bash(echo \"EXIT: $?\")",
+      "PowerShell(New-Item -ItemType Directory -Path \"d:\\\\Baseeta - Cashier\\\\src\\\\app\\\\api\\\\upload\" -Force)",
+      "PowerShell(New-Item -ItemType Directory -Path \"d:\\\\Baseeta - Cashier\\\\public\\\\uploads\" -Force)"
+    ]
+  }
+}

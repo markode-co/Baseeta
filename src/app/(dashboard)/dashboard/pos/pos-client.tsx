@@ -29,7 +29,7 @@ const ORDER_TYPES = [
 const PAYMENT_METHODS = [
   { value: "CASH", label: "نقداً", icon: Banknote, color: "text-green-600" },
   { value: "CARD", label: "بطاقة", icon: CreditCard, color: "text-blue-600" },
-  { value: "MADA", label: "مدى", icon: Smartphone, color: "text-purple-600" },
+  { value: "INSTAPAY", label: "إنستاباي", icon: Smartphone, color: "text-purple-600" },
 ];
 
 export function POSClient({ categories, menuItems, tables, session }: {
@@ -358,7 +358,7 @@ export function POSClient({ categories, menuItems, tables, session }: {
               className="flex items-center gap-1 px-2 py-1 bg-slate-100 rounded-lg text-xs text-slate-600 hover:bg-slate-200 transition-colors"
             >
               {discountType === "PERCENT" ? <Percent className="w-3 h-3" /> : <Tag className="w-3 h-3" />}
-              {discountType === "PERCENT" ? "%" : "ر.س"}
+              {discountType === "PERCENT" ? "%" : "ج.م"}
             </button>
             <input
               type="number"
@@ -483,7 +483,7 @@ export function POSClient({ categories, menuItems, tables, session }: {
                       ? "border-red-200 bg-red-50 opacity-60 cursor-not-allowed"
                       : table.status === "RESERVED"
                       ? "border-amber-200 bg-amber-50"
-                      : "border-slate-200 hover:border-blue-300 hover:bg-blue-50"
+                      : "border-green-200 bg-green-50/50 hover:border-green-400 hover:bg-green-50"
                   }`}
                 >
                   <Table2 className={`w-6 h-6 mx-auto mb-1 ${

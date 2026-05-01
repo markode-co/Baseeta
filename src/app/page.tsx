@@ -215,7 +215,7 @@ export default function LandingPage() {
                 <h3 className="text-xl font-bold text-slate-900 mb-2">{plan.name}</h3>
                 <div className="mb-5">
                   <span className="text-4xl font-black text-slate-900">{plan.price}</span>
-                  <span className="text-slate-400 mr-1">ر.س / شهر</span>
+                  <span className="text-slate-400 mr-1">ج.م / شهر</span>
                 </div>
                 <div className="space-y-2.5 mb-6">
                   {plan.features.map((f) => (
@@ -264,7 +264,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="border-t border-slate-800 pt-8 text-center text-sm">
-            © 2024 بسيطة لأنظمة المطاعم. جميع الحقوق محفوظة.
+            © 2026 بسيطة لأنظمة المطاعم. جميع الحقوق محفوظة.
           </div>
         </div>
       </footer>

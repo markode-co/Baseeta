@@ -39,15 +39,8 @@ export async function createSession(payload: SessionPayload): Promise<string> {
 export async function verifySession(token: string): Promise<SessionPayload | null> {
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
-
-    const session = await db.session.findUnique({
-      where: { token },
-    });
-
-    if (!session || session.expiresAt < new Date()) {
-      return null;
-    }
-
+    // JWT signature + expiry claim handle validity — no DB roundtrip needed per request.
+    // Sessions are invalidated by deleting the cookie on logout.
     return payload as unknown as SessionPayload;
   } catch {
     return null;

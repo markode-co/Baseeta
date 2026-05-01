@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
 import {
   TrendingUp, ShoppingCart, Star, Clock, DollarSign,
-  BarChart3, Calendar, Download
+  BarChart3, Calendar, Download, Printer
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,12 +34,66 @@ interface ReportsData {
   hourlyRevenue: { hour: string; revenue: number }[];
 }
 
+const ORDER_TYPE_LABELS_EXPORT: Record<string, string> = {
+  DINE_IN: "داخل المطعم",
+  TAKEAWAY: "تيك أواي",
+  DELIVERY: "توصيل",
+};
+
 export function ReportsClient({ data }: { data: ReportsData }) {
   const {
     todayRevenue, todayOrders, monthRevenue, monthOrders,
     allTimeRevenue, allTimeOrdersCount, avgOrderValue,
     dailyRevenue, topItems, ordersByType, hourlyRevenue,
   } = data;
+
+  function exportCSV() {
+    const rows: string[][] = [
+      ["بسيطة - تقرير المبيعات", new Date().toLocaleDateString("ar-EG")],
+      [""],
+      ["المؤشرات الرئيسية"],
+      ["المبيعات اليوم", String(todayRevenue), "ج.م"],
+      ["طلبات اليوم", String(todayOrders)],
+      ["مبيعات الشهر", String(monthRevenue), "ج.م"],
+      ["طلبات الشهر", String(monthOrders)],
+      ["متوسط قيمة الطلب", String(avgOrderValue.toFixed(2)), "ج.م"],
+      ["إجمالي الإيرادات الكلية", String(allTimeRevenue), "ج.م"],
+      ["إجمالي عدد الطلبات", String(allTimeOrdersCount)],
+      [""],
+      ["الإيرادات اليومية (آخر 30 يوم)"],
+      ["التاريخ", "الإيراد (ج.م)"],
+      ...dailyRevenue.map((d) => [d.date, String(d.revenue)]),
+      [""],
+      ["أكثر الأصناف مبيعاً"],
+      ["الصنف", "الكمية المباعة", "الإيراد (ج.م)"],
+      ...topItems.map((i) => [
+        i.nameAr || i.name,
+        String(i._sum.quantity ?? 0),
+        String((i._sum.total ?? 0).toFixed(2)),
+      ]),
+      [""],
+      ["توزيع أنواع الطلبات"],
+      ["النوع", "عدد الطلبات", "الإيراد (ج.م)"],
+      ...ordersByType.map((o) => [
+        ORDER_TYPE_LABELS_EXPORT[o.type] || o.type,
+        String(o._count),
+        String((o._sum.total ?? 0).toFixed(2)),
+      ]),
+    ];
+
+    const csv = rows
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `تقرير-بسيطة-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
   const pieData = ordersByType.map((o) => ({
     name: ORDER_TYPE_LABELS[o.type] || o.type,
@@ -53,9 +107,14 @@ export function ReportsClient({ data }: { data: ReportsData }) {
         title="التقارير والإحصائيات"
         subtitle="تحليل الأداء ومتابعة المبيعات"
         actions={
-          <Button variant="outline" size="sm">
-            <Download className="w-4 h-4" /> تصدير
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => window.print()}>
+              <Printer className="w-4 h-4" /> طباعة
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportCSV}>
+              <Download className="w-4 h-4" /> تصدير CSV
+            </Button>
+          </div>
         }
       />
 

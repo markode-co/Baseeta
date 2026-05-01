@@ -9,8 +9,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   const { type, quantity, notes } = await req.json();
 
-  const item = await db.inventoryItem.findUnique({ where: { id } });
-  if (!item) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // Fetch with branch to verify org ownership
+  const item = await db.inventoryItem.findUnique({
+    where: { id },
+    include: { branch: { select: { organizationId: true } } },
+  });
+
+  if (!item || item.branch.organizationId !== session.organizationId) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   let newQuantity = item.quantity;
   if (type === "ADD") newQuantity += quantity;

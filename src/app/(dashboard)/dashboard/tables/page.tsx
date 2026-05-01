@@ -8,7 +8,10 @@ export default async function TablesPage() {
   if (!session) redirect("/login");
 
   const tables = await db.table.findMany({
-    where: { branchId: session.branchId ?? "" },
+    where: {
+      branch: { organizationId: session.organizationId },
+      ...(session.branchId ? { branchId: session.branchId } : {}),
+    },
     include: {
       orders: {
         where: { status: { in: ["PENDING", "CONFIRMED", "PREPARING", "READY", "SERVED"] } },

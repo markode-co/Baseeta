@@ -258,8 +258,8 @@ export function TablesClient({ tables: initialTables, branchId }: { tables: Tabl
                         onClick={() => updateStatus(selectedTable.id, status)}
                         className={`p-2 rounded-lg border-2 text-sm font-medium transition-colors ${
                           selectedTable.status === status
-                            ? `${config.bg} border-current`
-                            : "border-slate-200 hover:border-slate-300"
+                            ? `${config.bg} ${config.text}`
+                            : "border-slate-200 text-slate-600 hover:border-slate-300"
                         }`}
                       >
                         {config.label}

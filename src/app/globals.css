@@ -38,6 +38,11 @@
   --radius-xl: 1rem;
 }
 
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -51,6 +56,14 @@ body {
   color: var(--color-foreground);
   font-family: var(--font-sans);
   min-height: 100%;
+}
+
+/* Print styles */
+@media print {
+  aside, header, nav, .no-print { display: none !important; }
+  main { margin: 0 !important; padding: 16px !important; }
+  body { background: white !important; }
+  .flex-1 { display: block !important; }
 }
 
 /* Scrollbar */

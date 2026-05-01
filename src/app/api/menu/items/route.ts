@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
       price: body.price,
       cost: body.cost || null,
       preparationTime: body.preparationTime || null,
+      image: body.image || null,
       isAvailable: body.isAvailable ?? true,
       isFeatured: body.isFeatured ?? false,
     },
