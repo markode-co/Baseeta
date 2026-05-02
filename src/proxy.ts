@@ -18,10 +18,13 @@ export async function proxy(request: NextRequest) {
   );
   if (isPublicFile) return NextResponse.next();
 
-  // Platform admin routes
-  if (pathname.startsWith("/platform")) {
+  // Platform admin routes (UI + API)
+  if (pathname.startsWith("/platform") || pathname.startsWith("/api/platform")) {
     const platformToken = request.cookies.get("platform-token")?.value;
     if (!platformToken) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+      }
       return NextResponse.redirect(new URL("/login", request.url));
     }
     try {
@@ -30,6 +33,9 @@ export async function proxy(request: NextRequest) {
       requestHeaders.set("x-pathname", pathname);
       return NextResponse.next({ request: { headers: requestHeaders } });
     } catch {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+      }
       return NextResponse.redirect(new URL("/login", request.url));
     }
   }

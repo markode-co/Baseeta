@@ -12,18 +12,17 @@ import { logout } from "@/app/actions/auth";
 import { ClosingButton } from "@/components/closing-modal";
 
 const NAV_ITEMS = [
-  { href: "/dashboard",            icon: LayoutDashboard, label: "لوحة التحكم" },
-  { href: "/dashboard/pos",        icon: ShoppingCart,    label: "الكاشير" },
-  { href: "/dashboard/orders",     icon: ClipboardList,   label: "الطلبات" },
-  { href: "/dashboard/tables",     icon: Table2,          label: "الطاولات" },
-  { href: "/dashboard/menu",       icon: UtensilsCrossed, label: "القائمة" },
-  { href: "/dashboard/inventory",  icon: Package,         label: "المخزون" },
-  { href: "/dashboard/staff",      icon: Users,           label: "الموظفون" },
-  { href: "/dashboard/reports",    icon: BarChart3,       label: "التقارير" },
-  { href: "/dashboard/subscription", icon: CreditCard,   label: "الاشتراك" },
-  { href: "/dashboard/branches",   icon: Store,           label: "الفروع" },
-  { href: "/dashboard/settings",   icon: Settings,        label: "الإعدادات" },
-  
+  { href: "/dashboard",              icon: LayoutDashboard, label: "لوحة التحكم",   roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+  { href: "/dashboard/pos",          icon: ShoppingCart,    label: "الكاشير",        roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER","WAITER"] },
+  { href: "/dashboard/orders",       icon: ClipboardList,   label: "الطلبات",        roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER","WAITER","KITCHEN"] },
+  { href: "/dashboard/tables",       icon: Table2,          label: "الطاولات",       roles: ["SUPER_ADMIN","ADMIN","MANAGER","WAITER"] },
+  { href: "/dashboard/menu",         icon: UtensilsCrossed, label: "القائمة",        roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+  { href: "/dashboard/inventory",    icon: Package,         label: "المخزون",        roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+  { href: "/dashboard/staff",        icon: Users,           label: "الموظفون",       roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+  { href: "/dashboard/reports",      icon: BarChart3,       label: "التقارير",       roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+  { href: "/dashboard/subscription", icon: CreditCard,      label: "الاشتراك",       roles: ["SUPER_ADMIN","ADMIN"] },
+  { href: "/dashboard/branches",     icon: Store,           label: "الفروع",         roles: ["SUPER_ADMIN","ADMIN"] },
+  { href: "/dashboard/settings",     icon: Settings,        label: "الإعدادات",      roles: ["SUPER_ADMIN","ADMIN"] },
 ];
 
 interface SidebarProps {
@@ -113,7 +112,7 @@ export function Sidebar({
       {/* ── Navigation ─────────────────────────────────── */}
       <nav className="flex-1 overflow-y-auto py-3 px-2">
         <ul className="space-y-0.5">
-          {NAV_ITEMS.map((item) => {
+          {NAV_ITEMS.filter((item) => item.roles.includes(userRole)).map((item) => {
             const isActive =
               pathname === item.href ||
               (item.href !== "/dashboard" && pathname.startsWith(item.href));

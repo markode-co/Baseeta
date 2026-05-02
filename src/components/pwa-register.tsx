@@ -14,7 +14,7 @@ export function PwaRegister() {
       return Promise.all(stale.map((r) => r.unregister()));
     }).then(() => {
       navigator.serviceWorker.register(CURRENT_SW).catch(() => {});
-    });
+    }).catch(() => {});
   }, []);
 
   return null;

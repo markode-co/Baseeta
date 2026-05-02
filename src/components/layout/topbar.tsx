@@ -14,7 +14,7 @@ interface TopbarProps {
 
 export function Topbar({ title, subtitle, userName = "المستخدم", actions, notificationCount = 0 }: TopbarProps) {
   return (
-    <header className="h-12 md:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-3 sm:px-6 sticky top-14 md:top-0 z-20 gap-2" dir="rtl">
+    <header className="h-12 md:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-3 sm:px-6 sticky top-0 z-20 gap-2 flex-shrink-0" dir="rtl">
       <div className="min-w-0 flex-1">
         <h1 className="text-sm sm:text-base md:text-lg font-bold text-slate-900 truncate">{title}</h1>
         {subtitle && <p className="text-xs text-slate-500 truncate hidden md:block">{subtitle}</p>}

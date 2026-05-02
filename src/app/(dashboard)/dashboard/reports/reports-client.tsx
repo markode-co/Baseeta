@@ -102,7 +102,7 @@ export function ReportsClient({ data }: { data: ReportsData }) {
   }));
 
   return (
-    <main className="flex-1 overflow-auto">
+    <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
       <Topbar
         title="التقارير والإحصائيات"
         subtitle="تحليل الأداء ومتابعة المبيعات"

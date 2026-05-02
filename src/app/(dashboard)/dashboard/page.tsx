@@ -84,6 +84,11 @@ export default async function DashboardPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
+  // Redirect limited roles to their primary page
+  if (session.role === "CASHIER") redirect("/dashboard/pos");
+  if (session.role === "KITCHEN") redirect("/dashboard/orders");
+  if (session.role === "WAITER") redirect("/dashboard/tables");
+
   const { todayOrders, yesterdayOrders, recentOrders, topItems, activeOrders } = await getDashboardData(
     session.organizationId,
     session.branchId
@@ -99,7 +104,7 @@ export default async function DashboardPage() {
   const avgOrder = ordersToday > 0 ? revenueToday / ordersToday : 0;
 
   return (
-    <main className="flex-1 overflow-auto">
+    <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
       <Topbar
         title={`مرحباً، ${session.name} 👋`}
         subtitle={new Date().toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}

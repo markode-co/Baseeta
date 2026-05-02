@@ -79,7 +79,7 @@ export function BranchesClient({ branches: initialBranches, organizationId }: {
   }
 
   return (
-    <main className="flex-1 overflow-auto">
+    <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
       <Topbar title="إدارة الفروع" subtitle={`${branches.length} فرع`} />
 
       <div className="p-3 sm:p-4 md:p-6" dir="rtl">

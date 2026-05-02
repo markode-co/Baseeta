@@ -83,7 +83,7 @@ export function TablesClient({ tables: initialTables, branchId }: { tables: Tabl
   }
 
   return (
-    <main className="flex-1 overflow-auto">
+    <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
       <div className="bg-white border-b border-slate-200 px-3 sm:px-6 py-3 sm:py-4" dir="rtl">
         <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
           <div>

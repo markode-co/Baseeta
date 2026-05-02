@@ -57,9 +57,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(regs) {
               regs.forEach(function(reg) {
-                reg.update();
+                reg.update().catch(function() {});
               });
-            });
+            }).catch(function() {});
           }
         `}} />
       </head>

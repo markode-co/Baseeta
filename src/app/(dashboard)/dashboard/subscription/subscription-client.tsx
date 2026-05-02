@@ -127,7 +127,7 @@ export function SubscriptionClient({ subscription, orgStats, pendingRequest }: S
   const planName = selectedPlan ? PLANS[selectedPlan].name : "";
 
   return (
-    <main className="flex-1 overflow-auto">
+    <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
       <Topbar title="الاشتراك" subtitle="إدارة خطة اشتراكك" />
 
       <div className="p-3 sm:p-4 md:p-6 max-w-4xl mx-auto space-y-5" dir="rtl">

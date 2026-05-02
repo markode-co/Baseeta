@@ -170,7 +170,7 @@ export function MenuClient({ categories, menuItems, organizationId }: {
   }
 
   return (
-    <main className="flex-1 overflow-auto">
+    <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
       <div className="bg-white border-b border-slate-200 px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2" dir="rtl">
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-slate-900">إدارة القائمة</h1>

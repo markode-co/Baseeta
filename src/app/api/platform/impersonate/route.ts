@@ -1,47 +1,44 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { NextResponse } from "next/server";
+import { getPlatformSession } from "@/lib/platform-auth";
+import { createSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import jwt from "jsonwebtoken";
+import { cookies } from "next/headers";
 
-export async function POST(req: NextRequest) {
-  try {
-    const session = await getSession();
-    if (!session?.email || session.email !== "ca.markode@gmail.com") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { userId } = await req.json();
-    if (!userId) {
-      return NextResponse.json({ error: "User ID required" }, { status: 400 });
-    }
-
-    // Get the user to impersonate
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      include: { organization: true },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    // Create impersonation token
-    const impersonationToken = jwt.sign(
-      {
-        userId: user.id,
-        email: user.email,
-        name: user.name,
-        organizationId: user.organizationId,
-        impersonated: true,
-        originalAdmin: session.email,
-      },
-      process.env.JWT_SECRET || "baseeta-jwt-secret",
-      { expiresIn: "1h" }
-    );
-
-    return NextResponse.json({ token: impersonationToken });
-  } catch (error) {
-    console.error("Impersonation error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+export async function POST() {
+  const platformSession = await getPlatformSession();
+  if (!platformSession) {
+    return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
   }
+
+  const user = await db.user.findFirst({
+    where: { email: platformSession.email },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (!user) {
+    return NextResponse.json(
+      { error: "لا يوجد حساب مطعم مرتبط بهذا البريد الإلكتروني" },
+      { status: 404 }
+    );
+  }
+
+  const token = await createSession({
+    userId: user.id,
+    organizationId: user.organizationId,
+    branchId: user.branchId ?? undefined,
+    role: user.role,
+    email: user.email,
+    name: user.name,
+  });
+
+  const cookieStore = await cookies();
+  cookieStore.set("auth-token", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 7 * 24 * 60 * 60,
+    path: "/",
+  });
+
+  return NextResponse.json({ success: true });
 }

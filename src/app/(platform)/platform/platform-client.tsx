@@ -184,23 +184,12 @@ export function PlatformDashboard({ organizations, stats, recentOrgs, paymentReq
 
   async function navigateAsRegularUser() {
     try {
-      const res = await fetch("/api/platform/navigate-as-user", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (!res.ok) throw new Error();
-      const { token } = await res.json();
-
-      // Exchange token for regular session
-      const loginRes = await fetch("/api/auth/impersonate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
-
-      if (!loginRes.ok) throw new Error();
-
-      toast.success("تم الدخول كمستخدم عادي");
+      const res = await fetch("/api/platform/impersonate", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "حدث خطأ في الدخول");
+        return;
+      }
       window.location.href = "/dashboard";
     } catch {
       toast.error("حدث خطأ في الدخول");
@@ -454,13 +443,6 @@ export function PlatformDashboard({ organizations, stats, recentOrgs, paymentReq
             <Globe className="w-4 h-4" />دخول كمستخدم عادي
           </button>
 
-          <button
-            onClick={downloadUsersAsExcel}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-slate-800 hover:text-blue-400 transition-colors"
-          >
-            <Download className="w-4 h-4" />تنزيل المستخدمين
-          </button>
-
           <div className="flex items-center gap-3 p-2 rounded-lg">
             <div className="w-8 h-8 bg-blue-600/20 rounded-full flex items-center justify-center flex-shrink-0">
               <span className="text-blue-400 text-sm font-bold">M</span>
@@ -650,8 +632,19 @@ export function PlatformDashboard({ organizations, stats, recentOrgs, paymentReq
           {/* ── USERS TAB ── */}
           {tab === "users" && (
             <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-800">
-                <h3 className="font-semibold text-slate-200">جميع المستخدمين في النظام</h3>
+              <div className="px-5 py-4 border-b border-slate-800 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="font-semibold text-slate-200">جميع المستخدمين في النظام</h3>
+                  <p className="text-sm text-slate-500">عرض بيانات المستخدمين وتنزيلها بدقة</p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <button
+                    onClick={downloadUsersAsExcel}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm transition-colors"
+                  >
+                    <Download className="w-4 h-4" />تنزيل المستخدمين
+                  </button>
+                </div>
               </div>
 
               <div className="overflow-x-auto">

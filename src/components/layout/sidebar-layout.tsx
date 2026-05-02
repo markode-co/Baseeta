@@ -34,7 +34,7 @@ export function SidebarLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50" dir="rtl">
+    <div className="flex h-screen overflow-hidden bg-slate-50" dir="rtl">
       {mobileOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/50 md:hidden"
@@ -55,12 +55,12 @@ export function SidebarLayout({
       />
 
       <div
-        className={`flex-1 flex flex-col min-h-screen transition-[margin] duration-300 ${
+        className={`flex-1 flex flex-col overflow-hidden transition-[margin] duration-300 ${
           collapsed ? "md:mr-16" : "md:mr-64"
         }`}
       >
         {/* Mobile top bar */}
-        <div className="md:hidden sticky top-0 z-30 bg-white border-b border-slate-100 flex items-center justify-between px-4 h-14 flex-shrink-0">
+        <div className="md:hidden flex-shrink-0 bg-white border-b border-slate-100 flex items-center justify-between px-4 h-14">
           <button
             onClick={() => setMobileOpen(true)}
             className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
