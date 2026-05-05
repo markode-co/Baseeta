@@ -31,4 +31,5 @@ const globalForPrisma = globalThis as unknown as {
 
 export const db = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+// Cache the client in both dev and production to avoid connection pool exhaustion
+if (!globalForPrisma.prisma) globalForPrisma.prisma = db;

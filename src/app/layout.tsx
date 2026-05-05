@@ -35,36 +35,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ar" dir="rtl" className={`${geist.variable} h-full antialiased`}>
-      <head>
+      <head suppressHydrationWarning>
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-TileColor" content="#2563eb" />
         <meta name="msapplication-tap-highlight" content="no" />
-        {/* Capture beforeinstallprompt + clear stale SW caches before chunks load */}
-        <script dangerouslySetInnerHTML={{ __html: `
-          window.__pwaPrompt = null;
-          window.addEventListener('beforeinstallprompt', function(e) {
-            e.preventDefault();
-            window.__pwaPrompt = e;
-          });
-          var CURRENT_CACHE = 'baseeta-v3';
-          if ('caches' in window) {
-            caches.keys().then(function(keys) {
-              keys.forEach(function(k) {
-                if (k !== CURRENT_CACHE) { caches.delete(k); }
-              });
-            });
-          }
-          if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(regs) {
-              regs.forEach(function(reg) {
-                reg.update().catch(function() {});
-              });
-            }).catch(function() {});
-          }
-        `}} />
       </head>
       <body className="min-h-full">
-        <SplashScreen />
         <PwaRegister />
         <PwaInstallPrompt />
         {children}
