@@ -44,7 +44,7 @@ export default function LoginPage() {
             </div>
             <span className="text-white text-3xl font-bold">بسيطة</span>
           </div>
-          <p className="text-blue-200 text-lg">نظام إدارة المطاعم والكاشير السحابي</p>
+          <p className="text-blue-200 text-lg">نظام إدارة المطاعم والكافيهات والكاشير السحابي</p>
         </div>
         <div className="relative z-10 space-y-6">
           {[

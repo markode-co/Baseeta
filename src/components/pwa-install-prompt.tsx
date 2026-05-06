@@ -180,8 +180,8 @@ export function PwaInstallPrompt() {
       if (navigator.share) {
         try {
           await navigator.share({
-            title: "بسيطة - نظام إدارة المطاعم",
-            text: "فتح تطبيق بسيطة",
+            title: "بسيطة - نظام إدارة المطاعم والكافيهات",
+            text: "فتح تطبيق بسيطة لإدارة المطاعم والكافيهات",
             url: window.location.href,
           });
         } catch (e) {

@@ -20,9 +20,9 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "بسيطة | نظام إدارة المطاعم",
-  description: "نظام سحابي متكامل لإدارة المطاعم والكاشير - بسيط، سريع، وقوي",
-  keywords: ["نظام مطعم", "كاشير", "إدارة مطعم", "POS", "restaurant management"],
+  title: "بسيطة | إدارة المطاعم والكافيهات",
+  description: "نظام سحابي متكامل لإدارة المطاعم والكافيهات والكاشير. منصة واحدة لإدارة الطاولات، المخزون، الموظفين، والتقارير.",
+  keywords: ["نظام مطعم", "كافيه", "كاشير", "إدارة مطاعم", "إدارة كافيهات", "POS", "restaurant management"],
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

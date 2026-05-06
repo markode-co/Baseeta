@@ -88,12 +88,12 @@ export default function LandingPage() {
             تجربة مجانية 14 يوم — لا بطاقة ائتمانية
           </div>
           <h1 className="text-5xl sm:text-6xl font-black text-slate-900 leading-tight mb-6">
-            إدارة مطعمك
+            إدارة المطاعم والكافيهات
             <br />
-            <span className="text-blue-600">بطريقة أبسط</span>
+            <span className="text-blue-600">بسهولة واحتراف</span>
           </h1>
           <p className="text-xl text-slate-500 leading-relaxed mb-8 max-w-2xl mx-auto">
-            نظام سحابي متكامل لإدارة المطاعم والكاشير. من نقطة البيع إلى التقارير، كل ما تحتاجه في مكان واحد.
+            نظام سحابي متكامل لإدارة المطاعم والكافيهات والكاشير. من نقطة البيع إلى المخزون والتقارير، كل شيء في منصة واحدة.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/register" className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-blue-600 text-white text-lg font-semibold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200">
