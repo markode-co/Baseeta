@@ -59,7 +59,7 @@ export default function RegisterPage() {
               <span className="text-blue-400">بسيطة</span> اليوم
             </h2>
             <p className="text-slate-300 mt-3 leading-relaxed">
-              انضم لآلاف المطاعم التي تستخدم بسيطة لإدارة أعمالها بكفاءة وسهولة
+              انضم لآلاف المطاعم والكافيهات التي تستخدم بسيطة لإدارة أعمالها بكفاءة وسهولة
             </p>
           </div>
 
@@ -83,7 +83,7 @@ export default function RegisterPage() {
               ))}
             </div>
             <div>
-              <p className="text-white text-sm font-medium">+2,500 مطعم</p>
+              <p className="text-white text-sm font-medium">+2,500 مطعم وكافيه</p>
               <p className="text-slate-400 text-xs">يثقون في بسيطة</p>
             </div>
           </div>
@@ -105,7 +105,7 @@ export default function RegisterPage() {
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
             <div className="mb-6">
               <h1 className="text-2xl font-bold text-slate-900">إنشاء حساب جديد 🎉</h1>
-              <p className="text-slate-500 mt-1">سجّل مطعمك وابدأ التجربة المجانية</p>
+              <p className="text-slate-500 mt-1">سجّل مطعمك أو كافيهك وابدأ التجربة المجانية</p>
             </div>
 
             {error && (
@@ -134,8 +134,8 @@ export default function RegisterPage() {
 
               <Input
                 name="restaurantName"
-                label="اسم المطعم"
-                placeholder="مطعم السلطة الخضراء"
+                label="اسم المطعم أو الكافيه"
+                placeholder="مطعم السلطة الخضراء أو كافيه القهوة"
                 startIcon={<Store className="w-4 h-4" />}
                 required
               />

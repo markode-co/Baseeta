@@ -430,7 +430,7 @@ export function PlatformDashboard({ organizations, stats, recentOrgs, paymentReq
 
         <nav className="flex-1 p-3 space-y-1">
           <NavBtn icon={LayoutDashboard} label="لوحة التحكم" active={tab === "dashboard"} onClick={() => setTab("dashboard")} />
-          <NavBtn icon={Building2} label="المطاعم" count={stats.totalOrgs} active={tab === "orgs"} onClick={() => setTab("orgs")} />
+          <NavBtn icon={Building2} label="المطاعم والكافيهات" count={stats.totalOrgs} active={tab === "orgs"} onClick={() => setTab("orgs")} />
           <NavBtn icon={Users} label="المستخدمون" count={allUsers.length} active={tab === "users"} onClick={() => setTab("users")} />
           <NavBtn icon={CreditCard} label="طلبات الدفع" count={pendingCount} active={tab === "payments"} onClick={() => setTab("payments")} highlight={pendingCount > 0} />
         </nav>
@@ -465,9 +465,9 @@ export function PlatformDashboard({ organizations, stats, recentOrgs, paymentReq
         <header className="sticky top-0 z-10 bg-slate-950/90 backdrop-blur border-b border-slate-800 px-8 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-white">
-              {tab === "dashboard" ? "لوحة تحكم المنصة" : tab === "orgs" ? "إدارة المطاعم" : tab === "users" ? "إدارة المستخدمين" : "طلبات الدفع"}
+              {tab === "dashboard" ? "لوحة تحكم المنصة" : tab === "orgs" ? "إدارة المطاعم والكافيهات" : tab === "users" ? "إدارة المستخدمين" : "طلبات الدفع"}
             </h1>
-            <p className="text-sm text-slate-400">إحصائيات وبيانات جميع المطاعم</p>
+            <p className="text-sm text-slate-400">إحصائيات وبيانات جميع المطاعم والكافيهات</p>
           </div>
           <div className="flex items-center gap-3">
             {pendingCount > 0 && (
@@ -488,7 +488,7 @@ export function PlatformDashboard({ organizations, stats, recentOrgs, paymentReq
           {tab === "dashboard" && (
             <>
               <div className="grid grid-cols-4 gap-4 mb-6">
-                <KpiCard icon={Building2} label="إجمالي المطاعم" value={stats.totalOrgs} color="blue" />
+                <KpiCard icon={Building2} label="إجمالي المطاعم والكافيهات" value={stats.totalOrgs} color="blue" />
                 <KpiCard icon={Users} label="إجمالي المستخدمين" value={stats.totalUsers} color="purple" />
                 <KpiCard icon={ShoppingCart} label="إجمالي الطلبات" value={stats.totalOrders.toLocaleString("ar")} color="green" />
                 <KpiCard icon={TrendingUp} label="إجمالي الإيرادات" value={formatCurrency(stats.totalRevenue)} color="amber" />
@@ -548,7 +548,7 @@ export function PlatformDashboard({ organizations, stats, recentOrgs, paymentReq
           {tab === "orgs" && (
             <div className="bg-slate-900 rounded-xl border border-slate-800">
               <div className="p-5 border-b border-slate-800 flex items-center gap-4 flex-wrap">
-                <h2 className="font-bold text-white flex-1">جميع المطاعم ({filtered.length})</h2>
+                <h2 className="font-bold text-white flex-1">جميع المطاعم والكافيهات ({filtered.length})</h2>
                 <div className="relative">
                   <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                   <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ابحث..." className="bg-slate-800 border border-slate-700 rounded-lg pr-9 pl-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 w-48" />

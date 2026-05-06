@@ -14,8 +14,8 @@ async function main() {
       create: {
         name: "Basic",
         nameAr: "أساسي",
-        description: "Perfect for single restaurants",
-        descriptionAr: "مناسب للمطاعم الفردية",
+        description: "Perfect for single restaurants and cafes",
+        descriptionAr: "مناسب للمطاعم والكافيهات الفردية",
         price: 149,
         currency: "SAR",
         interval: "month",

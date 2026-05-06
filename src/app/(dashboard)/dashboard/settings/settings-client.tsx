@@ -302,7 +302,7 @@ export function SettingsClient({ org, isPlatformAdmin }: { org: Org; isPlatformA
 
   return (
     <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-      <Topbar title="الإعدادات" subtitle="إعدادات المطعم والنظام" />
+      <Topbar title="الإعدادات" subtitle="إعدادات المطعم والكافيه والنظام" />
 
       <div className="p-4 sm:p-6 max-w-3xl" dir="rtl">
         {isPlatformAdmin && (

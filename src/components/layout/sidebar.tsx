@@ -38,7 +38,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({
-  orgName = "المطعم",
+  orgName = "المطعم أو الكافيه",
   userRole = "ADMIN",
   userName = "المستخدم",
   notificationCount = 0,

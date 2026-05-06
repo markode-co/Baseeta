@@ -3,7 +3,7 @@ import { Lock, Server, Eye, Bug, CheckCircle, ShieldAlert } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "الأمان | بسيطة",
-  description: "تعرّف على إجراءات الأمان وحماية البيانات في منصة بسيطة.",
+  description: "تعرّف على إجراءات الأمان وحماية البيانات في منصة بسيطة لإدارة المطاعم والكافيهات.",
 };
 
 const MEASURES = [

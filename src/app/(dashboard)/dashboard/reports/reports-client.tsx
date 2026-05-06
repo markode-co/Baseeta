@@ -13,7 +13,7 @@ import {
 } from "recharts";
 
 const ORDER_TYPE_LABELS: Record<string, string> = {
-  DINE_IN: "داخل المطعم",
+  DINE_IN: "داخل المطعم أو الكافيه",
   TAKEAWAY: "تيك أواي",
   DELIVERY: "توصيل",
 };

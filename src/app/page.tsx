@@ -37,7 +37,7 @@ const PLANS = [
 ];
 
 const STATS = [
-  { value: "+2,500", label: "مطعم يثق بنا" },
+  { value: "+2,500", label: "مطعم وكافيه يثق بنا" },
   { value: "+500K", label: "طلب يومياً" },
   { value: "99.9%", label: "وقت التشغيل" },
   { value: "24/7", label: "دعم فني" },
@@ -169,8 +169,8 @@ export default function LandingPage() {
       <section id="features" className="py-20 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-4xl font-black text-slate-900 mb-3">كل ما يحتاجه مطعمك</h2>
-            <p className="text-lg text-slate-500">ميزات متكاملة تغطي كل جانب من جوانب إدارة مطعمك</p>
+            <h2 className="text-4xl font-black text-slate-900 mb-3">كل ما يحتاجه مطعمك وكافيهك</h2>
+            <p className="text-lg text-slate-500">ميزات متكاملة تغطي كل جانب من جوانب إدارة مطعمك وكافيهك</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {FEATURES.map((feature) => (
@@ -257,8 +257,8 @@ export default function LandingPage() {
       {/* CTA */}
       <section className="py-20 px-4 bg-blue-600">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-4xl font-black text-white mb-4">جاهز لتحويل مطعمك؟</h2>
-          <p className="text-blue-200 text-lg mb-8">انضم لـ 2,500+ مطعم يستخدم بسيطة لإدارة أعمالهم</p>
+          <h2 className="text-4xl font-black text-white mb-4">جاهز لتحويل مطعمك وكافيهك؟</h2>
+          <p className="text-blue-200 text-lg mb-8">انضم لـ 2,500+ مطعم وكافيه يستخدم بسيطة لإدارة أعمالهم</p>
           <Link href="/register" className="inline-flex items-center gap-2 px-10 py-4 bg-white text-blue-700 text-lg font-bold rounded-xl hover:bg-blue-50 transition-all shadow-2xl">
             ابدأ مجاناً الآن
             <ArrowLeft className="w-5 h-5" />
