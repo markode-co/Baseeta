@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { SettingsClient } from "./settings-client";
+import { PLATFORM_ADMIN_EMAIL } from "@/lib/platform-auth";
 
 export default async function SettingsPage() {
   const session = await getSession();
@@ -16,7 +17,7 @@ export default async function SettingsPage() {
   return (
     <SettingsClient
       org={org}
-      isPlatformAdmin={session.email === process.env.PLATFORM_ADMIN_EMAIL}
+      isPlatformAdmin={session.email === PLATFORM_ADMIN_EMAIL}
     />
   );
 }

@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { hashPassword, verifyPassword, createSession, deleteSession, getSession } from "@/lib/auth";
-import { createPlatformSession } from "@/lib/platform-auth";
+import { createPlatformSession, PLATFORM_ADMIN_EMAIL } from "@/lib/platform-auth";
 import { slugify } from "@/lib/utils";
 
 const loginSchema = z.object({
@@ -22,73 +22,85 @@ const registerSchema = z.object({
 
 export async function login(formData: FormData) {
   const raw = {
-    email: formData.get("email") as string,
-    password: formData.get("password") as string,
-  };
+      email: formData.get("email") as string,
+      password: formData.get("password") as string,
+    };
 
-  const parsed = loginSchema.safeParse(raw);
-  if (!parsed.success) {
-    return { error: "بيانات غير صحيحة" };
-  }
+    const parsed = loginSchema.safeParse(raw);
+    if (!parsed.success) {
+      return { error: "بيانات غير صحيحة" };
+    }
 
-  // Check for impersonation token in localStorage (client-side)
-  // This will be handled by a client-side script
+    // Platform super admin check
+    if (
+      parsed.data.email === PLATFORM_ADMIN_EMAIL &&
+      parsed.data.password === process.env.PLATFORM_ADMIN_PASSWORD
+    ) {
+      const token = await createPlatformSession();
+      const cookieStore = await cookies();
+      cookieStore.set("platform-token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 24 * 60 * 60,
+        path: "/",
+      });
+      redirect("/platform");
+    }
 
-  // Platform super admin check
-  if (
-    parsed.data.email === process.env.PLATFORM_ADMIN_EMAIL &&
-    parsed.data.password === process.env.PLATFORM_ADMIN_PASSWORD
-  ) {
-    const token = await createPlatformSession();
+    // Database query with error handling
+    let user;
+    try {
+      user = await db.user.findFirst({
+        where: { email: parsed.data.email, isActive: true },
+        include: { organization: { include: { subscription: true } } },
+      });
+    } catch (dbError) {
+      // Handle Prisma P1000 (Authentication failed) or other DB errors
+      console.error("Database query error:", dbError);
+      return { error: "حدث خطأ في الاتصال بخادم البيانات. يرجى المحاولة لاحقاً." };
+    }
+
+    if (!user || !user.password) {
+      return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
+    }
+
+    const valid = await verifyPassword(parsed.data.password, user.password);
+    if (!valid) {
+      return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
+    }
+
+    const token = await createSession({
+      userId: user.id,
+      organizationId: user.organizationId,
+      branchId: user.branchId ?? undefined,
+      role: user.role,
+      email: user.email,
+      name: user.name,
+    });
+
+    // Update last login with error handling
+    try {
+      await db.user.update({
+        where: { id: user.id },
+        data: { lastLogin: new Date() },
+      });
+    } catch (updateError) {
+      // Log but don't fail the login if update fails
+      console.error("Failed to update lastLogin:", updateError);
+    }
+
     const cookieStore = await cookies();
-    cookieStore.set("platform-token", token, {
+    cookieStore.set("auth-token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 24 * 60 * 60,
+      maxAge: 7 * 24 * 60 * 60,
       path: "/",
     });
-    redirect("/platform");
-  }
 
-  const user = await db.user.findFirst({
-    where: { email: parsed.data.email, isActive: true },
-    include: { organization: { include: { subscription: true } } },
-  });
-
-  if (!user || !user.password) {
-    return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
-  }
-
-  const valid = await verifyPassword(parsed.data.password, user.password);
-  if (!valid) {
-    return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
-  }
-
-  const token = await createSession({
-    userId: user.id,
-    organizationId: user.organizationId,
-    branchId: user.branchId ?? undefined,
-    role: user.role,
-    email: user.email,
-    name: user.name,
-  });
-
-  await db.user.update({
-    where: { id: user.id },
-    data: { lastLogin: new Date() },
-  });
-
-  const cookieStore = await cookies();
-  cookieStore.set("auth-token", token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 7 * 24 * 60 * 60,
-    path: "/",
-  });
-
-  redirect("/dashboard");
+    // Success - redirect (this throws NEXT_REDIRECT which Next.js catches)
+    redirect("/dashboard");
 }
 
 export async function register(formData: FormData) {

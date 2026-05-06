@@ -108,23 +108,33 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await req.json();
-  const { id, status } = body;
+    const body = await req.json();
+    const { id, status } = body;
 
-  const order = await db.order.update({
-    where: { id, organizationId: session.organizationId },
-    data: {
-      status,
-      ...(status === "COMPLETED" ? { completedAt: new Date() } : {}),
-    },
-  });
+    if (!id || !status) {
+      return NextResponse.json({ error: "Missing id or status" }, { status: 400 });
+    }
 
-  if (status === "COMPLETED" && order.tableId) {
-    await db.table.update({ where: { id: order.tableId }, data: { status: "AVAILABLE" } });
+    const order = await db.order.update({
+      where: { id, organizationId: session.organizationId },
+      data: {
+        status,
+        ...(status === "COMPLETED" ? { completedAt: new Date() } : {}),
+      },
+    });
+
+    if (status === "COMPLETED" && order.tableId) {
+      await db.table.update({ where: { id: order.tableId }, data: { status: "AVAILABLE" } });
+    }
+
+    return NextResponse.json(order);
+  } catch (error) {
+    console.error("Error updating order:", error);
+    const message = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  return NextResponse.json(order);
 }

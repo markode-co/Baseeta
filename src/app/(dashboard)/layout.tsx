@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { SidebarLayout } from "@/components/layout/sidebar-layout";
+import { PLATFORM_ADMIN_EMAIL } from "@/lib/platform-auth";
 
 function isExpired(sub: { status: string; trialEnd: Date | null; currentPeriodEnd: Date | null } | null): boolean {
   if (!sub) return true;
@@ -45,7 +46,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       userRole={session.role}
       userName={session.name}
       notificationCount={pendingOrders}
-      isPlatformAdmin={session.email === process.env.PLATFORM_ADMIN_EMAIL}
+      isPlatformAdmin={session.email === PLATFORM_ADMIN_EMAIL}
     >
       {children}
     </SidebarLayout>
