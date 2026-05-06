@@ -34,10 +34,10 @@ export function SidebarLayout({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50" dir="rtl">
+    <div className="flex min-h-screen overflow-hidden bg-slate-50" dir="rtl">
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -55,7 +55,7 @@ export function SidebarLayout({
       />
 
       <div
-        className={`flex-1 flex flex-col overflow-hidden transition-[margin] duration-300 ${
+        className={`flex-1 flex flex-col min-h-0 overflow-hidden transition-all duration-300 ${
           collapsed ? "md:mr-16" : "md:mr-64"
         }`}
       >
@@ -77,7 +77,9 @@ export function SidebarLayout({
           <div className="w-9" />
         </div>
 
-        {children}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {children}
+        </div>
       </div>
     </div>
   );

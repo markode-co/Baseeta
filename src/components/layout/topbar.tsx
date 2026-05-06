@@ -14,13 +14,13 @@ interface TopbarProps {
 
 export function Topbar({ title, subtitle, userName = "المستخدم", actions, notificationCount = 0 }: TopbarProps) {
   return (
-    <header className="h-12 md:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-3 sm:px-6 sticky top-0 z-20 gap-2 flex-shrink-0" dir="rtl">
+    <header className="h-14 md:h-16 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between px-3 sm:px-5 md:px-6 sticky top-0 z-20 gap-2 flex-shrink-0" dir="rtl">
       <div className="min-w-0 flex-1">
         <h1 className="text-sm sm:text-base md:text-lg font-bold text-slate-900 truncate">{title}</h1>
         {subtitle && <p className="text-xs text-slate-500 truncate hidden md:block">{subtitle}</p>}
       </div>
 
-      <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 flex-shrink-0">
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 md:gap-3 flex-shrink-0">
         {actions}
 
         {/* Search */}
@@ -31,6 +31,15 @@ export function Topbar({ title, subtitle, userName = "المستخدم", actions
             className="w-52 rounded-lg border border-slate-200 bg-slate-50 pr-9 pl-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
+
+        {/* Settings shortcut on mobile */}
+        <Link
+          href="/dashboard/settings"
+          className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors md:hidden"
+          title="الإعدادات"
+        >
+          <Settings className="w-4 h-4" />
+        </Link>
 
         {/* Notifications */}
         <Link

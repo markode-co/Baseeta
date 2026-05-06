@@ -139,7 +139,7 @@ export function BranchesClient({ branches: initialBranches, organizationId }: {
                   </p>
                 )}
 
-                <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-3 border-t border-slate-100">
                   {[
                     { icon: Users, label: "موظف", value: branch._count.users },
                     { icon: Table2, label: "طاولة", value: branch._count.tables },

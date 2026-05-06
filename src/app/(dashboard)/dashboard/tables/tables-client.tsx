@@ -191,8 +191,8 @@ export function TablesClient({ tables: initialTables, branchId }: { tables: Tabl
           </div>
         ) : (
           // Floor plan view
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden" style={{ height: "600px" }}>
-            <div className="relative w-full h-full bg-slate-50">
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden min-h-[420px] sm:min-h-[520px] lg:min-h-[600px]">
+            <div className="relative w-full h-full bg-slate-50 min-h-[420px] sm:min-h-[520px] lg:min-h-[600px]">
               {/* Grid pattern */}
               <div className="absolute inset-0" style={{
                 backgroundImage: "radial-gradient(circle, #e2e8f0 1px, transparent 1px)",

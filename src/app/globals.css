@@ -141,6 +141,13 @@ body {
   height: calc(100vh - 64px);
 }
 
+@media (max-width: 1023px) {
+  .pos-grid {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+}
+
 /* Status badge colors */
 .status-available { background-color: #dcfce7; color: #16a34a; }
 .status-occupied { background-color: #fee2e2; color: #dc2626; }

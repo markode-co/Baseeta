@@ -57,10 +57,8 @@ export function Sidebar({
         "flex flex-col h-screen bg-slate-900 text-slate-100",
         "fixed right-0 top-0 z-50 border-l border-slate-800",
         "transition-all duration-300 ease-in-out",
-        // Desktop width
-        collapsed ? "w-16" : "w-64",
-        // Mobile: always w-64, slide in/out from right
-        "max-md:w-64",
+        collapsed ? "md:w-16 w-64" : "md:w-64 w-64",
+        "max-md:shadow-xl",
         mobileOpen ? "max-md:translate-x-0" : "max-md:translate-x-full",
       )}
     >

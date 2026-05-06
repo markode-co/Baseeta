@@ -182,7 +182,7 @@ export function SubscriptionClient({ subscription, orgStats, pendingRequest }: S
                   </p>
                 )}
               </div>
-              <div className="grid grid-cols-3 gap-3 mt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
                 {[
                   { label: "الفروع", value: orgStats.branches },
                   { label: "الموظفون", value: orgStats.users },

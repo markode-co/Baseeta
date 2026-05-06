@@ -443,7 +443,7 @@ export function POSClient({ categories, menuItems, tables, session }: {
             </div>
             <div>
               <p className="text-sm font-medium text-slate-700 mb-2">طريقة الدفع</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {PAYMENT_METHODS.map((m) => (
                   <button
                     key={m.value}
@@ -473,7 +473,7 @@ export function POSClient({ categories, menuItems, tables, session }: {
         <ModalContent size="lg">
           <ModalHeader><ModalTitle>اختر الطاولة</ModalTitle></ModalHeader>
           <ModalBody dir="rtl">
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
               {tables.map((table) => (
                 <button
                   key={table.id}
