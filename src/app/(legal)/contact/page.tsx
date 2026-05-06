@@ -3,8 +3,8 @@ import { useState } from "react";
 import { Mail, Phone, MessageSquare, MapPin, Clock, Send, CheckCircle } from "lucide-react";
 
 const CONTACT_ITEMS = [
-  { icon: Mail,    label: "البريد الإلكتروني", value: "support@baseeta.app",   href: "mailto:support@baseeta.app" },
-  { icon: Phone,   label: "الهاتف / واتساب",  value: "+20 100 000 0000",      href: "tel:+201000000000" },
+  { icon: Mail,    label: "البريد الإلكتروني", value: "ca.markode@gmail.com",   href: "mailto:ca.markode@gmail.com" },
+  { icon: Phone,   label: "الهاتف / واتساب",  value: "0109088636",      href: "tel:0109088636" },
   { icon: MapPin,  label: "الموقع",             value: "القاهرة، مصر",         href: null },
   { icon: Clock,   label: "ساعات الدعم",        value: "السبت – الخميس | 9ص – 9م", href: null },
 ];
