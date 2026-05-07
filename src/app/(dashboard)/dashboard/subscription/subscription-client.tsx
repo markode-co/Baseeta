@@ -24,14 +24,18 @@ const STATUS_MAP = {
 const PLANS = {
   BASIC: {
     name: "أساسي",
-    price: 1000,
+    monthlyPrice: 1000,
+    yearlyPrice: 9000,
+    yearlySavings: 3000,
     color: "blue",
     icon: Zap,
     features: ["فرع واحد", "5 مستخدمين", "100 صنف", "نقطة البيع", "إدارة الطاولات", "تقارير أساسية"],
   },
   PRO: {
     name: "احترافي",
-    price: 2500,
+    monthlyPrice: 2500,
+    yearlyPrice: 22500,
+    yearlySavings: 7500,
     color: "purple",
     icon: Star,
     popular: true,
@@ -39,7 +43,9 @@ const PLANS = {
   },
   PREMIUM: {
     name: "بريميوم",
-    price: 5000,
+    monthlyPrice: 5000,
+    yearlyPrice: 45000,
+    yearlySavings: 15000,
     color: "amber",
     icon: Crown,
     features: ["فروع غير محدودة", "مستخدمون غير محدودون", "أصناف غير محدودة", "كل ميزات الاحترافي", "مدير حساب مخصص", "دعم 24/7"],
@@ -64,10 +70,24 @@ interface SubscriptionClientProps {
 
 export function SubscriptionClient({ subscription, orgStats, pendingRequest }: SubscriptionClientProps) {
   const searchParams = useSearchParams();
-  const isExpired = searchParams.get("expired") === "1";
+
+  const isSubscriptionExpired = (subscription: SubscriptionClientProps["subscription"]): boolean => {
+    if (!subscription) return true;
+    const now = new Date();
+    if (subscription.status === "TRIALING") {
+      return subscription.trialEnd ? new Date(subscription.trialEnd) < now : true;
+    }
+    if (subscription.status === "ACTIVE") {
+      return subscription.currentPeriodEnd ? new Date(subscription.currentPeriodEnd) < now : false;
+    }
+    return true;
+  };
+
+  const isExpired = searchParams.get("expired") === "1" || isSubscriptionExpired(subscription);
 
   const [step, setStep] = useState<"plans" | "pay" | "done">("plans");
   const [selectedPlan, setSelectedPlan] = useState<keyof typeof PLANS | null>(null);
+  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("yearly");
   const [payMethod, setPayMethod] = useState<"INSTAPAY" | "BANK_TRANSFER">("INSTAPAY");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
@@ -109,7 +129,13 @@ export function SubscriptionClient({ subscription, orgStats, pendingRequest }: S
       const res = await fetch("/api/payment-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planKey: selectedPlan, method: payMethod, receiptUrl: url }),
+        body: JSON.stringify({ 
+          planKey: selectedPlan, 
+          method: payMethod, 
+          receiptUrl: url,
+          billingPeriod,
+          amount: planPrice,
+        }),
       });
 
       if (!res.ok) throw new Error("فشل إرسال الطلب");
@@ -123,8 +149,10 @@ export function SubscriptionClient({ subscription, orgStats, pendingRequest }: S
     }
   }
 
-  const planPrice = selectedPlan ? PLANS[selectedPlan].price : 0;
+  const planPrice = selectedPlan ? (billingPeriod === "yearly" ? PLANS[selectedPlan].yearlyPrice : PLANS[selectedPlan].monthlyPrice) : 0;
   const planName = selectedPlan ? PLANS[selectedPlan].name : "";
+  const billingLabel = billingPeriod === "yearly" ? "سنة" : "شهر";
+  const yearlySavings = selectedPlan && billingPeriod === "yearly" ? PLANS[selectedPlan].yearlySavings : 0;
 
   return (
     <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
@@ -202,6 +230,39 @@ export function SubscriptionClient({ subscription, orgStats, pendingRequest }: S
         {step === "plans" && (
           <>
             <h2 className="text-lg font-bold text-slate-900">اختر الباقة المناسبة</h2>
+            
+            {/* Billing Period Toggle */}
+            <div className="flex items-center gap-4 mb-6">
+              <p className="text-sm text-slate-600">طريقة الدفع:</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setBillingPeriod("monthly")}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                    billingPeriod === "monthly"
+                      ? "bg-blue-600 text-white shadow-lg"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  شهري
+                </button>
+                <button
+                  onClick={() => setBillingPeriod("yearly")}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all relative ${
+                    billingPeriod === "yearly"
+                      ? "bg-green-600 text-white shadow-lg"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  سنوي
+                  {billingPeriod === "yearly" && (
+                    <span className="absolute -top-2 -right-2 bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
+                      توفير 25%
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {(Object.entries(PLANS) as [keyof typeof PLANS, typeof PLANS[keyof typeof PLANS]][]).map(([key, plan]) => {
                 const Icon = plan.icon;
@@ -227,9 +288,14 @@ export function SubscriptionClient({ subscription, orgStats, pendingRequest }: S
                       {isSelected && <Check className="w-4 h-4 text-blue-600 mr-auto" />}
                     </div>
                     <div className="mb-4">
-                      <span className="text-3xl font-black text-slate-900">{plan.price.toLocaleString("ar-EG")}</span>
-                      <span className="text-slate-500 text-sm"> ج.م / شهر</span>
+                      <span className="text-3xl font-black text-slate-900">
+                        {(billingPeriod === "yearly" ? plan.yearlyPrice : plan.monthlyPrice).toLocaleString("ar-EG")}
+                      </span>
+                      <span className="text-slate-500 text-sm"> ج.م / {billingPeriod === "yearly" ? "سنة" : "شهر"}</span>
                     </div>
+                    {billingPeriod === "yearly" && plan.yearlySavings && (
+                      <p className="text-xs text-green-700 mb-2">توفر: {plan.yearlySavings.toLocaleString("ar-EG")} ج.م (خصم 25%)</p>
+                    )}
                     <div className="space-y-1.5">
                       {plan.features.map((f) => (
                         <div key={f} className="flex items-center gap-2 text-xs text-slate-600">
@@ -268,7 +334,10 @@ export function SubscriptionClient({ subscription, orgStats, pendingRequest }: S
               <CardContent className="p-4 flex items-center justify-between">
                 <div>
                   <p className="text-sm text-slate-500">الباقة المختارة</p>
-                  <p className="font-bold text-slate-900 text-lg">{planName}</p>
+                  <p className="font-bold text-slate-900 text-lg">{planName} ({billingLabel})</p>
+                  {billingPeriod === "yearly" && yearlySavings > 0 && (
+                    <p className="text-xs text-green-700 mt-1">توفر: {yearlySavings.toLocaleString("ar-EG")} ج.م (خصم 25%)</p>
+                  )}
                 </div>
                 <div className="text-left">
                   <p className="text-sm text-slate-500">المبلغ</p>
@@ -330,13 +399,13 @@ export function SubscriptionClient({ subscription, orgStats, pendingRequest }: S
                   </div>
                   <div className="flex items-center gap-2 bg-amber-50 rounded-lg p-3 text-sm text-amber-700">
                     <Shield className="w-4 h-4 flex-shrink-0" />
-                    <p>اكتب اسم الباقة في ملاحظات التحويل: <strong>بسيطة - {planName}</strong></p>
+                    <p>اكتب في الملاحظات: <strong>بسيطة - {planName} - {billingLabel}</strong></p>
                   </div>
                   <ol className="text-sm text-slate-600 space-y-1.5 list-decimal list-inside">
                     <li>افتح تطبيق InstaPay</li>
                     <li>اختر "تحويل" وأدخل الرقم أعلاه</li>
-                    <li>أدخل المبلغ: <strong>{planPrice.toLocaleString("ar-EG")} ج.م</strong></li>
-                    <li>اكتب في الملاحظات: بسيطة - {planName}</li>
+                    <li>أدخل المبلغ: <strong>{planPrice.toLocaleString("ar-EG")} ج.م</strong> (للاشتراك {billingLabel})</li>
+                    <li>اكتب في الملاحظات: بسيطة - {planName} - {billingLabel}</li>
                     <li>التقط لقطة شاشة بالإيصال وارفعها أدناه</li>
                   </ol>
                 </CardContent>
@@ -370,7 +439,7 @@ export function SubscriptionClient({ subscription, orgStats, pendingRequest }: S
                   ))}
                   <div className="flex items-center gap-2 bg-amber-50 rounded-lg p-3 text-sm text-amber-700 mt-2">
                     <Shield className="w-4 h-4 flex-shrink-0" />
-                    <p>اكتب في بيان التحويل: <strong>بسيطة - {planName}</strong></p>
+                    <p>اكتب في بيان التحويل: <strong>بسيطة - {planName} - {billingLabel}</strong></p>
                   </div>
                 </CardContent>
               </Card>
@@ -427,7 +496,7 @@ export function SubscriptionClient({ subscription, orgStats, pendingRequest }: S
             </Button>
 
             <p className="text-center text-xs text-slate-400">
-              بعد الإرسال ستستمر الخدمة 24 ساعة ريثما تتم مراجعة الطلب وتفعيل الاشتراك
+              بعد الإرسال ستستمر الخدمة 24 ساعة ريثما تتم مراجعة الطلب وتفعيل الاشتراك {billingPeriod === "yearly" ? "السنوي" : "الشهري"}
             </p>
           </div>
         )}
@@ -441,7 +510,7 @@ export function SubscriptionClient({ subscription, orgStats, pendingRequest }: S
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-2">تم إرسال طلبك بنجاح!</h3>
               <p className="text-slate-600 mb-1">إيصالك في مرحلة المراجعة.</p>
-              <p className="text-sm text-slate-500 mb-6">ستستمر خدمتك لمدة <strong>24 ساعة</strong> ريثما يتم التحقق من الدفع وتفعيل الاشتراك.</p>
+              <p className="text-sm text-slate-500 mb-6">ستستمر خدمتك لمدة <strong>24 ساعة</strong> ريثما يتم التحقق من الدفع وتفعيل اشتراك {planName} {billingLabel}.</p>
               <div className="flex items-center justify-center gap-2 text-sm text-slate-500 bg-white rounded-xl p-3 border border-slate-200">
                 <RefreshCw className="w-4 h-4" />
                 <span>للمساعدة: <strong dir="ltr">+201090886364</strong></span>

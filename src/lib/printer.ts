@@ -73,6 +73,7 @@ export function buildReceiptHtml(data: {
       ${data.receiptHeader ? `<p style="text-align:center;margin:2px 0;font-size:11px;color:#555;">${data.receiptHeader}</p>` : ""}
       <h2 style="text-align:center;margin:4px 0;font-size:18px;font-weight:900;">${data.orgName}</h2>
       <p style="text-align:center;margin:0;font-size:12px;color:#333;">بسيطة</p>
+      <p style="text-align:center;margin:0;font-size:11px;color:#555;">إدارة المطاعم و الكافيهات</p>
       ${data.orgAddress ? `<p style="text-align:center;margin:2px 0;font-size:10px;color:#555;">${data.orgAddress}</p>` : ""}
       <p style="text-align:center;margin:2px 0;font-size:11px;">طلب رقم: #${data.orderNumber}</p>
       ${data.tableInfo ? `<p style="text-align:center;margin:2px 0;font-size:11px;">${data.tableInfo}</p>` : ""}
@@ -145,6 +146,7 @@ export function buildEscPos(data: {
   txt(data.orgName); lf();
   push(escBytes(0x1b, 0x45, 0x00)); // Bold off
   txt("بسيطة"); lf();
+  txt("إدارة المطاعم و الكافيهات"); lf();
   txt(`#${data.orderNumber}`); lf();
   txt(SEP); lf();
   push(escBytes(0x1b, 0x61, 0x00)); // Left align

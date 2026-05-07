@@ -8,7 +8,10 @@ export const PLANS = {
   BASIC: {
     name: "أساسي",
     nameEn: "Basic",
-    price: 1000,
+    monthlyPrice: 1000,
+    yearlyPrice: 9000,
+    yearlySavings: 3000,
+    price: 1000, // For backward compatibility
     currency: "EGP",
     stripePriceId: process.env.STRIPE_PRICE_BASIC || "",
     maxBranches: 1,
@@ -26,7 +29,10 @@ export const PLANS = {
   PRO: {
     name: "احترافي",
     nameEn: "Pro",
-    price: 2500,
+    monthlyPrice: 2500,
+    yearlyPrice: 22500,
+    yearlySavings: 7500,
+    price: 2500, // For backward compatibility
     currency: "EGP",
     stripePriceId: process.env.STRIPE_PRICE_PRO || "",
     maxBranches: 3,
@@ -47,7 +53,10 @@ export const PLANS = {
   PREMIUM: {
     name: "بريميوم",
     nameEn: "Premium",
-    price: 5000,
+    monthlyPrice: 5000,
+    yearlyPrice: 45000,
+    yearlySavings: 15000,
+    price: 5000, // For backward compatibility
     currency: "EGP",
     stripePriceId: process.env.STRIPE_PRICE_PREMIUM || "",
     maxBranches: -1,

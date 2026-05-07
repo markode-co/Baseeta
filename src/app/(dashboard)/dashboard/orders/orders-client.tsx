@@ -124,6 +124,7 @@ export function OrdersClient({ initialOrders, orgName = "بسيطة", orgWebsite
   <div class="c">
     <div class="b" style="font-size:22px;margin-bottom:2px">${restaurantName}</div>
     <div style="font-size:12px;color:#333;margin-bottom:2px">بسيطة</div>
+    <div style="font-size:11px;color:#555;margin-bottom:2px">  إدارة المطاعم و الكافيهات  </div>
     ${branchName ? `<div style="font-size:12px;margin-top:2px">${branchName}</div>` : ""}
     ${branchInfo ? `<div style="font-size:10px;color:#666;margin-top:2px">${branchInfo}</div>` : ""}
   </div>

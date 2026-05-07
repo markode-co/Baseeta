@@ -23,15 +23,15 @@ const TESTIMONIALS = [
 
 const PLANS = [
   {
-    name: "أساسي", price: 1000, popular: false,
+    name: "أساسي", price: 1000, monthlyPrice: 1000, yearlyPrice: 9000, yearlySavings: 3000, popular: false,
     features: ["فرع واحد", "5 مستخدمين", "100 صنف", "نقطة البيع", "إدارة الطاولات", "تقارير أساسية"],
   },
   {
-    name: "احترافي", price: 2500, popular: true,
+    name: "احترافي", price: 2500, monthlyPrice: 2500, yearlyPrice: 22500, yearlySavings: 7500, popular: true,
     features: ["3 فروع", "20 مستخدم", "500 صنف", "كل ميزات الأساسي", "نظام المطبخ KDS", "إدارة المخزون", "تقارير متقدمة"],
   },
   {
-    name: "بريميوم", price: 5000, popular: false,
+    name: "بريميوم", price: 5000, monthlyPrice: 5000, yearlyPrice: 45000, yearlySavings: 15000, popular: false,
     features: ["فروع غير محدودة", "مستخدمون غير محدودون", "أصناف غير محدودة", "كل ميزات الاحترافي", "API كامل", "مدير حساب مخصص", "دعم 24/7"],
   },
 ];
@@ -232,11 +232,30 @@ export default function LandingPage() {
                     الأكثر شيوعاً
                   </div>
                 )}
-                <h3 className="text-xl font-bold text-slate-900 mb-2">{plan.name}</h3>
-                <div className="mb-5">
-                  <span className="text-4xl font-black text-slate-900">{plan.price}</span>
-                  <span className="text-slate-400 mr-1">ج.م / شهر</span>
+                <h3 className="text-xl font-bold text-slate-900 mb-4">{plan.name}</h3>
+                
+                {/* Monthly Option */}
+                <div className="mb-6 pb-6 border-b border-slate-200">
+                  <p className="text-xs text-slate-500 font-semibold mb-2">الدفع الشهري</p>
+                  <div className="mb-3">
+                    <span className="text-3xl font-black text-slate-900">{plan.monthlyPrice}</span>
+                    <span className="text-slate-400 mr-1">ج.م / شهر</span>
+                  </div>
                 </div>
+
+                {/* Yearly Option with Discount */}
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    <p className="text-xs text-slate-500 font-semibold">الدفع السنوي</p>
+                    <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-full">توفير 25%</span>
+                  </div>
+                  <div className="mb-2">
+                    <span className="text-3xl font-black text-slate-900">{plan.yearlyPrice}</span>
+                    <span className="text-slate-400 mr-1">ج.م / سنة</span>
+                  </div>
+                  <p className="text-xs text-green-700">توفر: {plan.yearlySavings.toLocaleString('ar-EG')} ج.م</p>
+                </div>
+
                 <div className="space-y-2.5 mb-6">
                   {plan.features.map((f) => (
                     <div key={f} className="flex items-center gap-2 text-sm text-slate-600">

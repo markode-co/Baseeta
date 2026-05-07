@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { requireActiveSubscription } from "@/lib/subscription";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const subscriptionError = await requireActiveSubscription(session);
+  if (subscriptionError) return subscriptionError;
 
   const { id } = await params;
   const body = await req.json();
@@ -25,7 +27,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const subscriptionError = await requireActiveSubscription(session);
+  if (subscriptionError) return subscriptionError;
 
   const { id } = await params;
   if (id === session.userId) return NextResponse.json({ error: "لا يمكن حذف حسابك الخاص" }, { status: 400 });
