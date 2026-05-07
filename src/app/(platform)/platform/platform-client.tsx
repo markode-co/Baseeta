@@ -8,6 +8,7 @@ import {
   CreditCard, X, Check, RefreshCw,
   Loader2, Eye, Phone, MapPin, Mail, Store, Hash,
   PauseCircle, PlayCircle, Trash2, AlertTriangle, Download,
+  ChevronRight, ChevronLeft,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import toast from "react-hot-toast";
@@ -87,6 +88,7 @@ export function PlatformDashboard({ organizations, stats, recentOrgs, paymentReq
   const [suspendingId, setSuspendingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const pendingCount = paymentRequests.filter((r) => r.status === "PENDING").length;
 
@@ -415,59 +417,73 @@ export function PlatformDashboard({ organizations, stats, recentOrgs, paymentReq
       )}
 
       {/* Sidebar */}
-      <div className="fixed right-0 top-0 h-screen w-64 bg-slate-900 border-l border-slate-800 flex flex-col z-10">
+      <div className={`fixed right-0 top-0 h-screen bg-slate-900 border-l border-slate-800 flex flex-col z-10 transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-16'}`}>
         <div className="p-5 border-b border-slate-800">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
               <Globe className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <p className="font-bold text-white text-sm">بسيطة</p>
-              <p className="text-xs text-slate-400">Platform Admin</p>
-            </div>
+            {sidebarOpen && (
+              <div>
+                <p className="font-bold text-white text-sm">بسيطة</p>
+                <p className="text-xs text-slate-400">Platform Admin</p>
+              </div>
+            )}
           </div>
         </div>
 
-        <nav className="flex-1 p-3 space-y-1">
-          <NavBtn icon={LayoutDashboard} label="لوحة التحكم" active={tab === "dashboard"} onClick={() => setTab("dashboard")} />
-          <NavBtn icon={Building2} label="المطاعم والكافيهات" count={stats.totalOrgs} active={tab === "orgs"} onClick={() => setTab("orgs")} />
-          <NavBtn icon={Users} label="المستخدمون" count={allUsers.length} active={tab === "users"} onClick={() => setTab("users")} />
-          <NavBtn icon={CreditCard} label="طلبات الدفع" count={pendingCount} active={tab === "payments"} onClick={() => setTab("payments")} highlight={pendingCount > 0} />
+        <nav className={`flex-1 p-3 space-y-1 ${!sidebarOpen && 'px-2'}`}>
+          <NavBtn icon={LayoutDashboard} label={sidebarOpen ? "لوحة التحكم" : ""} active={tab === "dashboard"} onClick={() => setTab("dashboard")} />
+          <NavBtn icon={Building2} label={sidebarOpen ? "المطاعم والكافيهات" : ""} count={stats.totalOrgs} active={tab === "orgs"} onClick={() => setTab("orgs")} />
+          <NavBtn icon={Users} label={sidebarOpen ? "المستخدمون" : ""} count={allUsers.length} active={tab === "users"} onClick={() => setTab("users")} />
+          <NavBtn icon={CreditCard} label={sidebarOpen ? "طلبات الدفع" : ""} count={pendingCount} active={tab === "payments"} onClick={() => setTab("payments")} highlight={pendingCount > 0} />
         </nav>
 
-        <div className="p-3 border-t border-slate-800 space-y-2">
+        <div className={`p-3 border-t border-slate-800 space-y-2 ${!sidebarOpen && 'px-2'}`}>
           <button
             onClick={navigateAsRegularUser}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-slate-800 hover:text-green-400 transition-colors"
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-slate-800 hover:text-green-400 transition-colors ${!sidebarOpen && 'justify-center px-2'}`}
           >
-            <Globe className="w-4 h-4" />دخول كمستخدم عادي
+            <Globe className="w-4 h-4" />
+            {sidebarOpen && "دخول كمستخدم عادي"}
           </button>
 
-          <div className="flex items-center gap-3 p-2 rounded-lg">
-            <div className="w-8 h-8 bg-blue-600/20 rounded-full flex items-center justify-center flex-shrink-0">
-              <span className="text-blue-400 text-sm font-bold">M</span>
+          {sidebarOpen && (
+            <div className="flex items-center gap-3 p-2 rounded-lg">
+              <div className="w-8 h-8 bg-blue-600/20 rounded-full flex items-center justify-center flex-shrink-0">
+                <span className="text-blue-400 text-sm font-bold">M</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-slate-200 font-medium truncate">Mark</p>
+                <p className="text-xs text-slate-500 truncate">ca.markode@gmail.com</p>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-slate-200 font-medium truncate">Mark</p>
-              <p className="text-xs text-slate-500 truncate">ca.markode@gmail.com</p>
-            </div>
-          </div>
+          )}
           <form action={platformLogout}>
-            <button type="submit" className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-800 hover:text-red-400 transition-colors">
-              <LogOut className="w-4 h-4" />تسجيل الخروج
+            <button type="submit" className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-800 hover:text-red-400 transition-colors ${!sidebarOpen && 'justify-center px-2'}`}>
+              <LogOut className="w-4 h-4" />
+              {sidebarOpen && "تسجيل الخروج"}
             </button>
           </form>
         </div>
       </div>
 
       {/* Main */}
-      <div className="mr-64 flex flex-col min-h-screen">
+      <div className={`flex flex-col min-h-screen transition-all duration-300 ${sidebarOpen ? 'mr-64' : 'mr-16'}`}>
         <header className="sticky top-0 z-10 bg-slate-950/90 backdrop-blur border-b border-slate-800 px-8 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-white">
-              {tab === "dashboard" ? "لوحة تحكم المنصة" : tab === "orgs" ? "إدارة المطاعم والكافيهات" : tab === "users" ? "إدارة المستخدمين" : "طلبات الدفع"}
-            </h1>
-            <p className="text-sm text-slate-400">إحصائيات وبيانات جميع المطاعم والكافيهات</p>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+            >
+              {sidebarOpen ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+            </button>
+            <div>
+              <h1 className="text-xl font-bold text-white">
+                {tab === "dashboard" ? "لوحة تحكم المنصة" : tab === "orgs" ? "إدارة المطاعم والكافيهات" : tab === "users" ? "إدارة المستخدمين" : "طلبات الدفع"}
+              </h1>
+              <p className="text-sm text-slate-400">إحصائيات وبيانات جميع المطاعم والكافيهات</p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             {pendingCount > 0 && (
@@ -487,20 +503,20 @@ export function PlatformDashboard({ organizations, stats, recentOrgs, paymentReq
           {/* ── DASHBOARD TAB ── */}
           {tab === "dashboard" && (
             <>
-              <div className="grid grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
                 <KpiCard icon={Building2} label="إجمالي المطاعم والكافيهات" value={stats.totalOrgs} color="blue" />
                 <KpiCard icon={Users} label="إجمالي المستخدمين" value={stats.totalUsers} color="purple" />
                 <KpiCard icon={ShoppingCart} label="إجمالي الطلبات" value={stats.totalOrders.toLocaleString("ar")} color="green" />
                 <KpiCard icon={TrendingUp} label="إجمالي الإيرادات" value={formatCurrency(stats.totalRevenue)} color="amber" />
               </div>
-              <div className="grid grid-cols-4 gap-4 mb-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
                 <KpiCard icon={ShoppingCart} label="طلبات اليوم" value={stats.todayOrders} color="green" small />
                 <KpiCard icon={DollarSign} label="إيرادات اليوم" value={formatCurrency(stats.todayRevenue)} color="amber" small />
                 <KpiCard icon={CheckCircle} label="اشتراكات نشطة" value={stats.activeSubscriptions} color="green" small />
                 <KpiCard icon={Clock} label="اشتراكات تجريبية" value={stats.trialSubscriptions} color="blue" small />
               </div>
 
-              <div className="grid grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="bg-slate-900 rounded-xl border border-slate-800 p-5">
                   <h3 className="font-semibold text-slate-200 mb-4">توزيع الاشتراكات</h3>
                   <div className="space-y-3">
@@ -818,11 +834,12 @@ function KpiCard({ icon: Icon, label, value, color, small }: { icon: React.Eleme
 }
 
 function NavBtn({ icon: Icon, label, active, onClick, count, highlight }: { icon: React.ElementType; label: string; active: boolean; onClick: () => void; count?: number; highlight?: boolean }) {
+  const showLabel = label.trim() !== "";
   return (
-    <button onClick={onClick} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${active ? "bg-blue-600 text-white" : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"}`}>
+    <button onClick={onClick} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${active ? "bg-blue-600 text-white" : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"} ${!showLabel && 'justify-center px-2'}`}>
       <Icon className="w-4 h-4 flex-shrink-0" />
-      <span className="flex-1 text-right">{label}</span>
-      {count !== undefined && count > 0 && (
+      {showLabel && <span className="flex-1 text-right">{label}</span>}
+      {showLabel && count !== undefined && count > 0 && (
         <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${highlight ? "bg-amber-400 text-amber-900" : active ? "bg-white/20 text-white" : "bg-slate-700 text-slate-400"}`}>{count}</span>
       )}
     </button>

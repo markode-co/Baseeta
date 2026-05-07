@@ -72,6 +72,7 @@ export function buildReceiptHtml(data: {
     <div style="font-family:'Courier New',monospace;width:76mm;margin:0 auto;direction:rtl;font-size:12px;padding:4px;">
       ${data.receiptHeader ? `<p style="text-align:center;margin:2px 0;font-size:11px;color:#555;">${data.receiptHeader}</p>` : ""}
       <h2 style="text-align:center;margin:4px 0;font-size:18px;font-weight:900;">${data.orgName}</h2>
+      <p style="text-align:center;margin:0;font-size:12px;color:#333;">بسيطة</p>
       ${data.orgAddress ? `<p style="text-align:center;margin:2px 0;font-size:10px;color:#555;">${data.orgAddress}</p>` : ""}
       <p style="text-align:center;margin:2px 0;font-size:11px;">طلب رقم: #${data.orderNumber}</p>
       ${data.tableInfo ? `<p style="text-align:center;margin:2px 0;font-size:11px;">${data.tableInfo}</p>` : ""}
@@ -126,6 +127,7 @@ export function buildEscPos(data: {
   tax: number;
   total: number;
   paymentMethod: string;
+  receiptHeader?: string;
   footer?: string;
 }): Uint8Array {
   const enc = new TextEncoder();
@@ -138,9 +140,11 @@ export function buildEscPos(data: {
 
   push(escBytes(0x1b, 0x40)); // Init
   push(escBytes(0x1b, 0x61, 0x01)); // Center
+  if (data.receiptHeader) { txt(data.receiptHeader); lf(); }
   push(escBytes(0x1b, 0x45, 0x01)); // Bold on
   txt(data.orgName); lf();
   push(escBytes(0x1b, 0x45, 0x00)); // Bold off
+  txt("بسيطة"); lf();
   txt(`#${data.orderNumber}`); lf();
   txt(SEP); lf();
   push(escBytes(0x1b, 0x61, 0x00)); // Left align

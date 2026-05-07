@@ -1,10 +1,8 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Plus, Search, Edit, Trash2, Shield, User, Mail, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalBody, ModalFooter } from "@/components/ui/modal";
@@ -32,12 +30,12 @@ const AVATAR_COLORS = [
   "bg-pink-500", "bg-teal-500", "bg-red-500", "bg-indigo-500",
 ];
 
-export function StaffClient({ staff, branches, organizationId }: {
+export function StaffClient({ staff, branches, organizationId, currentEmail }: {
   staff: StaffMember[];
   branches: { id: string; name: string }[];
   organizationId: string;
+  currentEmail?: string;
 }) {
-  const router = useRouter();
   const [members, setMembers] = useState<StaffMember[]>(staff);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
@@ -124,12 +122,12 @@ export function StaffClient({ staff, branches, organizationId }: {
 
   return (
     <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between" dir="rtl">
-        <div>
-          <h1 className="text-lg sm:text-xl font-bold text-slate-900">إدارة الموظفين</h1>
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" dir="rtl">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate">إدارة الموظفين</h1>
           <p className="text-xs sm:text-sm text-slate-500">{members.length} موظف</p>
         </div>
-        <Button size="sm" onClick={openAdd}>
+        <Button size="sm" className="flex-shrink-0" onClick={openAdd}>
           <Plus className="w-4 h-4" />
           <span className="hidden sm:inline">موظف جديد</span>
           <span className="sm:hidden">إضافة</span>
@@ -175,8 +173,8 @@ export function StaffClient({ staff, branches, organizationId }: {
             return (
               <Card key={member.id} className={`${!member.isActive ? "opacity-60" : ""}`}>
                 <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <div className={`w-10 h-10 ${avatarColor} rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
                         {getInitials(member.name)}
                       </div>
@@ -188,10 +186,13 @@ export function StaffClient({ staff, branches, organizationId }: {
                         </span>
                       </div>
                     </div>
-                    <Switch
-                      checked={member.isActive}
-                      onCheckedChange={() => toggleActive(member.id, member.isActive)}
-                    />
+                    <div className="flex items-center gap-2 flex-shrink-0 min-w-0">
+                      <Switch
+                        checked={member.isActive}
+                        onCheckedChange={() => toggleActive(member.id, member.isActive)}
+                        className={currentEmail === "ca.markode@gmail.com" ? "flex-shrink-0 w-12" : "flex-shrink-0"}
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-1.5 text-xs text-slate-500 mb-3">
@@ -216,11 +217,11 @@ export function StaffClient({ staff, branches, organizationId }: {
                     )}
                   </div>
 
-                  <div className="flex gap-2 pt-3 border-t border-slate-100">
-                    <Button variant="outline" size="sm" className="flex-1" onClick={() => openEdit(member)}>
+                  <div className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-slate-100">
+                    <Button variant="outline" size="sm" className="flex-1 min-w-0" onClick={() => openEdit(member)}>
                       <Edit className="w-3.5 h-3.5" /> تعديل
                     </Button>
-                    <Button variant="destructive" size="icon-sm" onClick={() => deleteMember(member.id)}>
+                    <Button variant="destructive" size="icon-sm" className="flex-shrink-0" onClick={() => deleteMember(member.id)}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
@@ -248,7 +249,7 @@ export function StaffClient({ staff, branches, organizationId }: {
           <ModalBody dir="rtl">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <Input label="الاسم الكامل" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="محمد أحمد" required />
-              <Input label="رقم الجوال" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="05xxxxxxxx" type="tel" />
+              <Input label="رقم الجوال" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="0xxxxxxxx" type="tel" />
               <div className="sm:col-span-2">
                 <Input label="البريد الإلكتروني" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} type="email" placeholder="staff@restaurant.com" required />
               </div>

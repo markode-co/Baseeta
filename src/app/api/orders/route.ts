@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { items, type, tableId, customerName, customerPhone, discount, discountType, tax, subtotal, total, paymentMethod, branchId } = body;
+  const { items, type, tableId, customerId, customerPhone, discount, discountType, tax, subtotal, total, paymentMethod, branchId } = body;
 
   if (!items?.length) return NextResponse.json({ error: "No items" }, { status: 400 });
 
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       tableId: tableId || null,
       type,
       status: "PENDING",
-      customerName,
+      customerId,
       customerPhone,
       discount: discount || 0,
       discountType: discountType || null,
@@ -96,7 +96,7 @@ export async function GET(req: NextRequest) {
   const [orders, total] = await Promise.all([
     db.order.findMany({
       where,
-      include: { items: true, table: true, user: { select: { name: true } } },
+      include: { items: true, table: true, branch: { select: { name: true, nameAr: true, address: true, phone: true } }, user: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
       skip,
       take: limit,

@@ -16,9 +16,10 @@ type Branch = {
   _count: { users: number; tables: number; orders: number };
 };
 
-export function BranchesClient({ branches: initialBranches, organizationId }: {
+export function BranchesClient({ branches: initialBranches, organizationId, currentEmail }: {
   branches: Branch[];
   organizationId: string;
+  currentEmail?: string;
 }) {
   const [branches, setBranches] = useState<Branch[]>(initialBranches);
   const [showAdd, setShowAdd] = useState(false);
@@ -93,7 +94,7 @@ export function BranchesClient({ branches: initialBranches, organizationId }: {
           {branches.map((branch) => (
             <Card key={branch.id} className={`${!branch.isActive ? "opacity-60" : ""}`}>
               <CardContent className="p-5">
-                <div className="flex items-start justify-between gap-2 mb-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
                       <Store className="w-6 h-6 text-blue-600" />
@@ -103,8 +104,12 @@ export function BranchesClient({ branches: initialBranches, organizationId }: {
                       {branch.nameAr && <p className="text-xs text-slate-400 truncate">{branch.name}</p>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Switch checked={branch.isActive} onCheckedChange={() => toggleBranch(branch.id, branch.isActive)} />
+                  <div className="flex flex-wrap items-center gap-2 justify-end flex-shrink-0 min-w-0">
+                    <Switch
+                      checked={branch.isActive}
+                      onCheckedChange={() => toggleBranch(branch.id, branch.isActive)}
+                      className={currentEmail === "ca.markode@gmail.com" ? "flex-shrink-0 w-12" : "flex-shrink-0"}
+                    />
                     <Badge variant={branch.isActive ? "success" : "secondary"} className="whitespace-nowrap text-xs">
                       {branch.isActive ? "نشط" : "معطل"}
                     </Badge>

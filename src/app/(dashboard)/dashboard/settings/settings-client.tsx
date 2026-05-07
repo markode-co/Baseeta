@@ -23,7 +23,7 @@ import toast from "react-hot-toast";
 type Org = {
   id: string; name: string; slug: string; email: string; phone: string | null;
   address: string | null; currency: string; timezone: string; locale: string;
-  taxRate: number; receiptFooter: string | null;
+  taxRate: number; receiptFooter: string | null; receiptHeader: string | null; website: string | null;
 };
 
 const CURRENCIES = [
@@ -93,9 +93,10 @@ function PrinterSettings({ orgName }: { orgName: string }) {
       orgName, orderNumber: "TEST-001",
       items: TEST_ITEMS,
       subtotal: 85, tax: 12.75, total: 97.75,
-      paymentMethod: "نقداً", footer: orgName,
-      orgWebsite: rs.website || undefined,
+      paymentMethod: "نقداً",
       receiptHeader: rs.header || undefined,
+      footer: orgName,
+      orgWebsite: rs.website || undefined,
     };
     try {
       if (cfg.type === "browser" || cfg.type === "usb") {
@@ -265,6 +266,8 @@ export function SettingsClient({ org, isPlatformAdmin }: { org: Org; isPlatformA
     name: org.name, email: org.email, phone: org.phone || "",
     address: org.address || "", currency: org.currency, timezone: org.timezone,
     taxRate: String(org.taxRate * 100), receiptFooter: org.receiptFooter || "",
+    receiptHeader: org.receiptHeader || "",
+    website: org.website || "",
   });
   const [isSaving, setIsSaving] = useState(false);
   const [receiptLocal, setReceiptLocal] = useState({ address: "", website: "", header: "" });
@@ -279,8 +282,8 @@ export function SettingsClient({ org, isPlatformAdmin }: { org: Org; isPlatformA
     setTimeout(() => setReceiptSaved(false), 2000);
   }
 
-  const qrPreviewUrl = receiptLocal.website
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(receiptLocal.website)}&margin=2`
+  const qrPreviewUrl = form.website
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(form.website)}&margin=2`
     : "";
 
   async function save() {
@@ -414,15 +417,7 @@ export function SettingsClient({ org, isPlatformAdmin }: { org: Org; isPlatformA
               <Card>
                 <CardHeader><CardTitle className="text-base">تخصيص الفاتورة</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">نص الترحيب (أعلى الفاتورة)</label>
-                    <Input
-                      value={receiptLocal.header}
-                      onChange={(e) => setReceiptLocal({ ...receiptLocal, header: e.target.value })}
-                      placeholder="أهلاً بكم في مطعمنا"
-                    />
-                    <p className="text-xs text-slate-400 mt-1">يظهر بخط صغير فوق اسم المطعم</p>
-                  </div>
+                
 
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center gap-1.5">
@@ -430,12 +425,12 @@ export function SettingsClient({ org, isPlatformAdmin }: { org: Org; isPlatformA
                       رابط الموقع الإلكتروني
                     </label>
                     <Input
-                      value={receiptLocal.website}
-                      onChange={(e) => setReceiptLocal({ ...receiptLocal, website: e.target.value })}
+                      value={form.website}
+                      onChange={(e) => setForm({ ...form, website: e.target.value })}
                       placeholder="https://example.com"
                       dir="ltr"
                     />
-                    <p className="text-xs text-slate-400 mt-1">يظهر كـ QR Code في أسفل الفاتورة — عند مسحه يفتح الموقع مباشرة</p>
+                    <p className="text-xs text-slate-400 mt-1">ينشئ QR Code للربط الموجود أعلاه وسيتم طباعته في أسفل الفاتورة بعد الحفظ.</p>
                   </div>
 
                   {/* QR Preview */}
@@ -447,7 +442,7 @@ export function SettingsClient({ org, isPlatformAdmin }: { org: Org; isPlatformA
                           <QrCode className="w-4 h-4 text-green-600" />
                           <p className="text-sm font-semibold text-slate-800">معاينة QR Code</p>
                         </div>
-                        <p className="text-xs text-slate-500 break-all">{receiptLocal.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}</p>
+                        <p className="text-xs text-slate-500 break-all">{form.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}</p>
                         <p className="text-xs text-green-600 mt-1">سيظهر هذا الكود في أسفل الفاتورة</p>
                       </div>
                     </div>
@@ -464,8 +459,19 @@ export function SettingsClient({ org, isPlatformAdmin }: { org: Org; isPlatformA
 
               {/* Footer — saved to DB */}
               <Card>
-                <CardHeader><CardTitle className="text-base">ذيل الفاتورة</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-base">رأس وذيل الفاتورة</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">نص رسالة أعلى الفاتورة</label>
+                    <textarea
+                      value={form.receiptHeader}
+                      onChange={(e) => setForm({ ...form, receiptHeader: e.target.value })}
+                      placeholder="أهلاً بكم في مطعمنا"
+                      rows={3}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">يظهر هذا النص في أعلى الفاتورة لجميع موظفي المطعم بعد الحفظ.</p>
+                  </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">نص ذيل الفاتورة</label>
                     <textarea
@@ -475,6 +481,7 @@ export function SettingsClient({ org, isPlatformAdmin }: { org: Org; isPlatformA
                       rows={3}
                       className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                     />
+                    <p className="text-xs text-slate-400 mt-1">يظهر في أسفل الفاتورة لجميع موظفي المطعم.</p>
                   </div>
                   <div className="flex justify-end">
                     <Button onClick={save} loading={isSaving}><Save className="w-4 h-4" /> حفظ</Button>

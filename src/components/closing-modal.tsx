@@ -46,7 +46,7 @@ function formatRange(start: string, end: string, period: Period) {
 }
 
 // ── Print ─────────────────────────────────────────────────────────────────────
-function buildPrintHtml(data: ClosingData): string {
+function buildPrintHtml(data: ClosingData, orgName = "بسيطة"): string {
   const periodLabel = PERIOD_LABELS[data.period];
   const range       = formatRange(data.startDate, data.endDate, data.period);
   const payRows = data.byPayment.map((p) =>
@@ -63,8 +63,8 @@ function buildPrintHtml(data: ClosingData): string {
   td{padding:3px 0}
   @media print{body{width:80mm}@page{size:80mm auto;margin:0}}
 </style></head><body>
-<div class="c"><div class="b" style="font-size:18px">بسيطة</div>
-<div style="font-size:11px;color:#555">نظام إدارة المطاعم</div></div>
+<div class="c"><div class="b" style="font-size:18px">${orgName}</div>
+<div style="font-size:11px;color:#555">نظام إدارة المطاعم والكافيهات</div></div>
 <div class="hr"></div>
 <div class="c b" style="font-size:15px">${periodLabel}</div>
 <div class="c" style="font-size:11px;margin:3px 0">${range}</div>
@@ -85,7 +85,7 @@ ${payRows}
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
-export function ClosingButton({ collapsed = false }: { collapsed?: boolean }) {
+export function ClosingButton({ collapsed = false, orgName = "بسيطة" }: { collapsed?: boolean; orgName?: string }) {
   const [open,    setOpen]    = useState(false);
   const [period,  setPeriod]  = useState<Period>("daily");
   const [data,    setData]    = useState<ClosingData | null>(null);
@@ -120,7 +120,7 @@ export function ClosingButton({ collapsed = false }: { collapsed?: boolean }) {
     if (!data) return;
     const win = window.open("", "_blank", "width=420,height=700");
     if (!win) return;
-    win.document.write(buildPrintHtml(data));
+    win.document.write(buildPrintHtml(data, orgName));
     win.document.close();
     win.focus();
     setTimeout(() => { win.print(); win.close(); }, 400);

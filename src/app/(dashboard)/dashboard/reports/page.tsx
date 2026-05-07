@@ -102,7 +102,11 @@ export default async function ReportsPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
+  const org = await db.organization.findUnique({
+    where: { id: session.organizationId },
+    select: { name: true },
+  });
   const data = await getReportsData(session.organizationId, session.branchId);
 
-  return <ReportsClient data={data} />;
+  return <ReportsClient data={data} orgName={org?.name || "بسيطة"} />;
 }

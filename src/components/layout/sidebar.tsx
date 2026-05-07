@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { logout } from "@/app/actions/auth";
 import { ClosingButton } from "@/components/closing-modal";
 
+const APP_NAME = "بسيطة";
+
 const NAV_ITEMS = [
   { href: "/dashboard",              icon: LayoutDashboard, label: "لوحة التحكم",   roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
   { href: "/dashboard/pos",          icon: ShoppingCart,    label: "الكاشير",        roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER","WAITER"] },
@@ -74,7 +76,7 @@ export function Sidebar({
         {/* Title + buttons — hidden when collapsed on desktop */}
         <div className={cn("flex-1 min-w-0 flex items-center gap-1", collapsed && "md:hidden")}>
           <div className="flex-1 min-w-0">
-            <p className="text-white font-bold text-base leading-none">بسيطة</p>
+            <p className="text-white font-bold text-base leading-none">{APP_NAME}</p>
             {orgName && <p className="text-slate-400 text-xs truncate mt-0.5">{orgName}</p>}
           </div>
           {/* Close — mobile only */}
@@ -141,19 +143,29 @@ export function Sidebar({
 
           {isPlatformAdmin && (
             <li className="pt-2 mt-2 border-t border-slate-700">
-              <Link
-                href="/platform"
-                onClick={onCloseMobile}
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/platform/login', { method: 'POST' });
+                    if (res.ok) {
+                      window.location.href = '/platform';
+                    } else {
+                      alert('فشل في الوصول إلى لوحة التحكم الكاملة');
+                    }
+                  } catch {
+                    alert('فشل في الوصول إلى لوحة التحكم الكاملة');
+                  }
+                }}
                 title={collapsed ? "لوحة التحكم الكاملة" : undefined}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150",
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150",
                   collapsed && "md:justify-center md:px-0 md:py-3",
                   "text-violet-400 hover:bg-violet-500/10 hover:text-violet-300",
                 )}
               >
                 <ShieldCheck className="w-[18px] h-[18px] flex-shrink-0" />
                 <span className={cn(collapsed && "md:hidden")}>لوحة التحكم الكاملة</span>
-              </Link>
+              </button>
             </li>
           )}
         </ul>
@@ -181,7 +193,7 @@ export function Sidebar({
             </Link>
           </div>
           <div className="mb-1">
-            <ClosingButton collapsed={false} />
+            <ClosingButton collapsed={false} orgName={orgName} />
           </div>
           <form action={logout}>
             <button
@@ -206,7 +218,7 @@ export function Sidebar({
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-slate-900" />
             )}
           </Link>
-          <ClosingButton collapsed={true} />
+          <ClosingButton collapsed={true} orgName={orgName} />
           <form action={logout}>
             <button
               type="submit"

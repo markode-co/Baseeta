@@ -18,5 +18,5 @@ export default async function StaffPage() {
     select: { id: true, name: true },
   });
 
-  return <StaffClient staff={staff} branches={branches} organizationId={session.organizationId} />;
+  return <StaffClient staff={staff} branches={branches} organizationId={session.organizationId} currentEmail={session.email} />;
 }

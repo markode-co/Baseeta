@@ -366,12 +366,12 @@ export function MenuClient({ categories, menuItems, organizationId }: {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <Switch checked={itemForm.isAvailable} onCheckedChange={(v) => setItemForm({ ...itemForm, isAvailable: v })} />
+              <div className="flex items-center gap-3 sm:col-span-2">
+                <Switch checked={itemForm.isAvailable} onCheckedChange={(v) => setItemForm({ ...itemForm, isAvailable: v })} className="flex-shrink-0" />
                 <label className="text-sm text-slate-700">متاح للطلب</label>
               </div>
-              <div className="flex items-center gap-3">
-                <Switch checked={itemForm.isFeatured} onCheckedChange={(v) => setItemForm({ ...itemForm, isFeatured: v })} />
+              <div className="flex items-center gap-3 sm:col-span-2">
+                <Switch checked={itemForm.isFeatured} onCheckedChange={(v) => setItemForm({ ...itemForm, isFeatured: v })} className="flex-shrink-0" />
                 <label className="text-sm text-slate-700">مميز</label>
               </div>
             </div>

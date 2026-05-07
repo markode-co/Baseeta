@@ -1,6 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { Topbar } from "@/components/layout/topbar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,10 +16,11 @@ import { loadReceiptSettings } from "@/lib/printer";
 
 type OrderItem = { id: string; name: string; nameAr: string | null; quantity: number; price: number; total: number; notes: string | null; };
 type Table = { id: string; name: string; } | null;
+type Branch = { name: string; nameAr: string | null; address: string | null; phone: string | null } | null;
 type Order = {
   id: string; orderNumber: string; status: string; type: string; total: number; subtotal: number; tax: number;
-  discount: number; paymentMethod: string | null; createdAt: Date; customerName: string | null;
-  table: Table; items: OrderItem[]; user: { name: string } | null;
+  discount: number; paymentMethod: string | null; createdAt: Date; customerId: string | null;
+  table: Table; branch: Branch; items: OrderItem[]; user: { name: string } | null;
 };
 
 const STATUS_FLOW: Record<string, string> = {
@@ -58,17 +58,12 @@ const TAB_LABELS: Record<string, string> = {
   ALL: "الكل", PENDING: "معلقة", PREPARING: "قيد التحضير", READY: "جاهزة", COMPLETED: "مكتملة", CANCELLED: "ملغاة"
 };
 
-export function OrdersClient({ initialOrders, orgName = "بسيطة" }: { initialOrders: Order[]; orgName?: string }) {
-  const router = useRouter();
+export function OrdersClient({ initialOrders, orgName = "بسيطة", orgWebsite, orgReceiptFooter, orgReceiptHeader }: { initialOrders: Order[]; orgName?: string; orgWebsite?: string; orgReceiptFooter?: string; orgReceiptHeader?: string }) {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [activeTab, setActiveTab] = useState<string>("ALL");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
-  const [receiptSettings, setReceiptSettings] = useState({ address: "", website: "", header: "" });
-
-  useEffect(() => {
-    setReceiptSettings(loadReceiptSettings());
-  }, []);
+  const receiptSettings = loadReceiptSettings();
 
   const filtered = orders.filter((o) => {
     if (activeTab === "ALL") return true;
@@ -96,7 +91,15 @@ export function OrdersClient({ initialOrders, orgName = "بسيطة" }: { initia
   }
 
   function printInvoice(order: Order) {
-    const { address, website, header } = receiptSettings;
+    const { address, website: localWebsite, header } = receiptSettings;
+    const receiptHeader = orgReceiptHeader || header;
+    const receiptFooter = orgReceiptFooter || undefined;
+    const restaurantName = orgName || "بسيطة";
+    const branchName = order.branch?.nameAr || order.branch?.name || "";
+    const branchAddress = order.branch?.address || address;
+    const branchPhone = order.branch?.phone;
+    const branchInfo = branchPhone ? `${branchAddress}${branchAddress ? " • " : ""}${branchPhone}` : branchAddress;
+    const website = orgWebsite || localWebsite;
     const websiteDomain = website ? website.replace(/^https?:\/\//, "").replace(/\/$/, "") : "";
     const qrUrl = website ? `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(website)}&margin=2` : "";
     
@@ -117,18 +120,19 @@ export function OrdersClient({ initialOrders, orgName = "بسيطة" }: { initia
   </style>
 </head>
 <body>
-  ${header ? `<div class="c" style="margin-bottom:4px;font-size:11px;color:#555">${header}</div>` : ""}
+  ${receiptHeader ? `<div class="c" style="margin-bottom:4px;font-size:11px;color:#555">${receiptHeader}</div>` : ""}
   <div class="c">
-    <div class="b" style="font-size:22px;margin-bottom:2px">بسيطة</div>
-    <div style="font-size:11px;color:#555">نظام إدارة المطاعم</div>
-    ${address ? `<div style="font-size:10px;color:#666;margin-top:2px">${address}</div>` : ""}
+    <div class="b" style="font-size:22px;margin-bottom:2px">${restaurantName}</div>
+    <div style="font-size:12px;color:#333;margin-bottom:2px">بسيطة</div>
+    ${branchName ? `<div style="font-size:12px;margin-top:2px">${branchName}</div>` : ""}
+    ${branchInfo ? `<div style="font-size:10px;color:#666;margin-top:2px">${branchInfo}</div>` : ""}
   </div>
   <div class="hr"></div>
   <div class="c">
     <div class="b" style="font-size:15px">فاتورة #${order.orderNumber}</div>
     <div style="font-size:11px;margin-top:2px">${formatDateTime(order.createdAt)}</div>
     <div style="margin-top:3px">${order.table ? `طاولة: ${order.table.name}` : TYPE_LABEL[order.type] || order.type}</div>
-    ${order.customerName ? `<div>العميل: ${order.customerName}</div>` : ""}
+    ${order.customerId ? `<div>رقم العميل: ${order.customerId}</div>` : ""}
   </div>
   <div class="hr"></div>
   ${order.items.map((item) => `
@@ -146,6 +150,7 @@ export function OrdersClient({ initialOrders, orgName = "بسيطة" }: { initia
   <div class="row b" style="font-size:15px"><span>الإجمالي</span><span>${formatCurrency(order.total)}</span></div>
   ${order.paymentMethod ? `<div class="row" style="margin-top:4px"><span>طريقة الدفع</span><span>${PAYMENT_LABEL[order.paymentMethod] || order.paymentMethod}</span></div>` : ""}
   <div class="hr"></div>
+  ${receiptFooter ? `<div class="c" style="margin-top:6px;font-size:12px;color:#333;">${receiptFooter}</div>` : ""}
   <div class="c" style="margin-top:6px;font-size:12px">
     <div class="b">شكراً لزيارتكم</div>
     <div style="color:#555;margin-top:3px">نتمنى أن تكونوا راضين عن خدمتنا</div>
@@ -229,7 +234,7 @@ export function OrdersClient({ initialOrders, orgName = "بسيطة" }: { initia
                           <div className="flex items-center gap-2 text-sm text-slate-600 mb-3">
                             <span className="px-2 py-0.5 bg-slate-100 rounded text-xs">{TYPE_LABEL[order.type]}</span>
                             {order.table && <span className="text-slate-500">· طاولة {order.table.name}</span>}
-                            {order.customerName && <span className="text-slate-500">· {order.customerName}</span>}
+                            {order.customerId && <span className="text-slate-500">· رقم العميل: {order.customerId}</span>}
                           </div>
 
                           <div className="space-y-1 mb-3">

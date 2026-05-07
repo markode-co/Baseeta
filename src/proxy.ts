@@ -21,18 +21,26 @@ export async function proxy(request: NextRequest) {
   // Platform admin routes (UI + API)
   if (pathname.startsWith("/platform") || pathname.startsWith("/api/platform")) {
     const platformToken = request.cookies.get("platform-token")?.value;
+
     if (!platformToken) {
+      if (pathname === "/api/platform/login") {
+        return NextResponse.next();
+      }
       if (pathname.startsWith("/api/")) {
         return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
       }
       return NextResponse.redirect(new URL("/login", request.url));
     }
+
     try {
       await jwtVerify(platformToken, JWT_SECRET);
       const requestHeaders = new Headers(request.headers);
       requestHeaders.set("x-pathname", pathname);
       return NextResponse.next({ request: { headers: requestHeaders } });
     } catch {
+      if (pathname === "/api/platform/login") {
+        return NextResponse.next();
+      }
       if (pathname.startsWith("/api/")) {
         return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
       }

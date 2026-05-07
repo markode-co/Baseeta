@@ -40,7 +40,7 @@ const ORDER_TYPE_LABELS_EXPORT: Record<string, string> = {
   DELIVERY: "توصيل",
 };
 
-export function ReportsClient({ data }: { data: ReportsData }) {
+export function ReportsClient({ data, orgName }: { data: ReportsData; orgName: string }) {
   const {
     todayRevenue, todayOrders, monthRevenue, monthOrders,
     allTimeRevenue, allTimeOrdersCount, avgOrderValue,
@@ -49,7 +49,7 @@ export function ReportsClient({ data }: { data: ReportsData }) {
 
   function exportCSV() {
     const rows: string[][] = [
-      ["بسيطة - تقرير المبيعات", new Date().toLocaleDateString("ar-EG")],
+      [`${orgName} - تقرير المبيعات`, new Date().toLocaleDateString("ar-EG")],
       [""],
       ["المؤشرات الرئيسية"],
       ["المبيعات اليوم", String(todayRevenue), "ج.م"],
@@ -88,7 +88,8 @@ export function ReportsClient({ data }: { data: ReportsData }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `تقرير-بسيطة-${new Date().toISOString().slice(0, 10)}.csv`;
+    const safeName = orgName.replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "") || "تقرير";
+    a.download = `تقرير-${safeName}-${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -103,6 +104,10 @@ export function ReportsClient({ data }: { data: ReportsData }) {
 
   return (
     <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+      <div className="hidden print:block mb-4">
+        <div className="text-center text-xl font-black">{orgName}</div>
+        <div className="text-center text-sm text-slate-600">تقرير المبيعات</div>
+      </div>
       <Topbar
         title="التقارير والإحصائيات"
         subtitle="تحليل الأداء ومتابعة المبيعات"
@@ -278,7 +283,7 @@ export function ReportsClient({ data }: { data: ReportsData }) {
                       const totalRevenue = topItems.reduce((s, i) => s + (i._sum.total || 0), 0);
                       const pct = totalRevenue > 0 ? ((item._sum.total || 0) / totalRevenue * 100).toFixed(1) : "0";
                       return (
-                        <tr key={item.name} className="hover:bg-slate-50">
+                        <tr key={`${item.name}-${idx}`} className="hover:bg-slate-50">
                           <td className="py-2.5 text-slate-400 font-medium">{idx + 1}</td>
                           <td className="py-2.5 font-medium text-slate-800">{item.nameAr || item.name}</td>
                           <td className="py-2.5 text-slate-600">{item._sum.quantity || 0}</td>

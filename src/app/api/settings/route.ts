@@ -19,6 +19,8 @@ export async function PUT(req: NextRequest) {
       timezone: body.timezone,
       taxRate: body.taxRate,
       receiptFooter: body.receiptFooter || null,
+      receiptHeader: body.receiptHeader || null,
+      website: body.website || null,
     },
   });
 

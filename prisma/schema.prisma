@@ -22,6 +22,8 @@ model Organization {
   locale        String   @default("ar")
   taxRate       Float    @default(0.15)
   receiptFooter String?
+  receiptHeader String?
+  website       String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -319,7 +321,7 @@ model Order {
   tax            Float       @default(0)
   total          Float       @default(0)
   notes          String?
-  customerName   String?
+  customerId     String?
   customerPhone  String?
   paymentMethod  String?
   paymentStatus  PayStatus   @default(UNPAID)

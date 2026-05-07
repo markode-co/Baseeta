@@ -16,6 +16,7 @@ import toast from "react-hot-toast";
 type Category  = { id: string; name: string; nameAr: string | null; color: string | null };
 type MenuItem  = { id: string; name: string; nameAr: string | null; price: number; image: string | null; categoryId: string; preparationTime: number | null; isAvailable: boolean };
 type Table     = { id: string; name: string; capacity: number; status: string; section: string | null };
+type Branch    = { id: string; name: string; nameAr: string | null; address: string | null; phone: string | null } | null;
 type CartItem  = { menuItemId: string; name: string; nameAr: string | null; price: number; quantity: number; notes: string };
 type OrderType = "DINE_IN" | "TAKEAWAY" | "DELIVERY";
 type Session   = { userId: string; organizationId: string; branchId?: string; role: string };
@@ -34,11 +35,16 @@ const PAYMENT_METHODS = [
 
 const PAYMENT_LABELS: Record<string, string> = { CASH: "نقداً", CARD: "بطاقة", INSTAPAY: "إنستاباي" };
 
-export function POSClient({ categories, menuItems, tables, session }: {
+export function POSClient({ categories, menuItems, tables, branch, session, orgName = "بسيطة", orgWebsite, orgReceiptFooter, orgReceiptHeader }: {
   categories: Category[];
   menuItems:  MenuItem[];
   tables:     Table[];
+  branch:     Branch;
   session:    Session;
+  orgName?:   string;
+  orgWebsite?: string;
+  orgReceiptFooter?: string;
+  orgReceiptHeader?: string;
 }) {
   const router = useRouter();
   const [mobileView,      setMobileView]      = useState<"menu" | "cart">("menu");
@@ -47,7 +53,7 @@ export function POSClient({ categories, menuItems, tables, session }: {
   const [cart,             setCart]             = useState<CartItem[]>([]);
   const [orderType,        setOrderType]        = useState<OrderType>("DINE_IN");
   const [selectedTable,    setSelectedTable]    = useState<string | null>(null);
-  const [customerName,     setCustomerName]     = useState("");
+  const [customerId,       setCustomerId]       = useState("");
   const [discount,         setDiscount]         = useState(0);
   const [discountType,     setDiscountType]     = useState<"FIXED" | "PERCENT">("PERCENT");
   const [showPayment,      setShowPayment]      = useState(false);
@@ -94,7 +100,7 @@ export function POSClient({ categories, menuItems, tables, session }: {
   }
 
   function clearCart() {
-    setCart([]); setDiscount(0); setCustomerName(""); setSelectedTable(null);
+    setCart([]); setDiscount(0); setCustomerId(""); setSelectedTable(null);
   }
 
   function saveNote() {
@@ -114,7 +120,7 @@ export function POSClient({ categories, menuItems, tables, session }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: cart, type: orderType, tableId: selectedTable,
-          customerName, discount: discountAmount, discountType,
+          customerId, discount: discountAmount, discountType,
           tax, subtotal, total, paymentMethod, branchId: session.branchId,
         }),
       });
@@ -136,12 +142,20 @@ export function POSClient({ categories, menuItems, tables, session }: {
   async function handlePrint() {
     try {
       const cfg = loadPrinterConfig();
+      const restaurantName = orgName || "بسيطة";
+      const branchName = branch?.nameAr || branch?.name || "";
+      const branchInfo = branch?.address ? `${branch.address}${branch.phone ? ` • ${branch.phone}` : ""}` : "";
+      
       const html = buildReceiptHtml({
-        orgName: "بسيطة",
+        orgName: restaurantName,
+        orgAddress: branchInfo,
+        orgWebsite: orgWebsite || undefined,
+        receiptHeader: orgReceiptHeader || undefined,
         orderNumber: lastOrder?.number || "—",
         items: cart.map((i) => ({ name: i.name, nameAr: i.nameAr, qty: i.quantity, price: i.price })),
         subtotal, discount: discountAmount || undefined, tax, total,
         paymentMethod: PAYMENT_LABELS[paymentMethod] || paymentMethod,
+        footer: orgReceiptFooter || undefined,
         tableInfo: selectedTable ? `طاولة ${tables.find((t) => t.id === selectedTable)?.name}` : undefined,
       });
       if (cfg.type === "browser" || cfg.type !== "bluetooth") {
@@ -364,9 +378,9 @@ export function POSClient({ categories, menuItems, tables, session }: {
             className="w-16 rounded-lg border border-slate-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <Input
-            placeholder="اسم الزبون"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
+            placeholder="رقم الزبون"
+            value={customerId}
+            onChange={(e) => setCustomerId(e.target.value)}
             className="flex-1"
           />
         </div>

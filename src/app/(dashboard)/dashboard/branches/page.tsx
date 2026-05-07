@@ -15,5 +15,5 @@ export default async function BranchesPage() {
     orderBy: { createdAt: "asc" },
   });
 
-  return <BranchesClient branches={branches} organizationId={session.organizationId} />;
+  return <BranchesClient branches={branches} organizationId={session.organizationId} currentEmail={session.email} />;
 }

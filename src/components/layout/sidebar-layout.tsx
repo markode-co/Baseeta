@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { Sidebar } from "./sidebar";
 import { Menu, Utensils } from "lucide-react";
 
+const APP_NAME = "بسيطة";
+
 interface SidebarLayoutProps {
   children: React.ReactNode;
   orgName?: string;
@@ -72,7 +74,7 @@ export function SidebarLayout({
             <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
               <Utensils className="w-4 h-4 text-white" />
             </div>
-            <span className="font-bold text-slate-900">بسيطة</span>
+            <span className="font-bold text-slate-900">{APP_NAME}</span>
           </div>
           <div className="w-9" />
         </div>
