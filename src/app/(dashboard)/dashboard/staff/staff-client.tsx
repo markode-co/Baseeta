@@ -126,6 +126,7 @@ export function StaffClient({ staff, branches, organizationId, currentEmail }: {
         <div className="min-w-0">
           <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate">إدارة الموظفين</h1>
           <p className="text-xs sm:text-sm text-slate-500">{members.length} موظف</p>
+          <p className="mt-1 text-xs sm:text-sm text-blue-600">يشمل التطبيق تجربة مجانية لمدة 14 يومًا.</p>
         </div>
         <Button size="sm" className="flex-shrink-0" onClick={openAdd}>
           <Plus className="w-4 h-4" />

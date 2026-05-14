@@ -8,7 +8,7 @@ const JWT_SECRET = new TextEncoder().encode(
 
 const PUBLIC_PATHS = ["/", "/login", "/register", "/pricing", "/api/auth", "/api/webhook"];
 
-const PUBLIC_FILES = ["/manifest.json", "/sw.js", "/icon", "/icon2", "/apple-icon", "/robots.txt", "/favicon.ico"];
+const PUBLIC_FILES = ["/manifest.json", "/sw.js", "/icon", "/icon2", "/apple-icon", "/robots.txt", "/sitemap.xml", "/favicon.ico"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

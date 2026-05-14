@@ -23,16 +23,22 @@ const TESTIMONIALS = [
 
 const PLANS = [
   {
-    name: "أساسي", price: 1000, monthlyPrice: 1000, yearlyPrice: 9000, yearlySavings: 3000, popular: false,
+    name: "أساسي",
+    price: 1000,
+    monthlyPrice: 1000,
+    yearlyPrice: 9000,
+    yearlySavings: 3000,
+    popular: false,
     features: ["فرع واحد", "5 مستخدمين", "100 صنف", "نقطة البيع", "إدارة الطاولات", "تقارير أساسية"],
   },
   {
-    name: "احترافي", price: 2500, monthlyPrice: 2500, yearlyPrice: 22500, yearlySavings: 7500, popular: true,
-    features: ["3 فروع", "20 مستخدم", "500 صنف", "كل ميزات الأساسي", "نظام المطبخ KDS", "إدارة المخزون", "تقارير متقدمة"],
-  },
-  {
-    name: "بريميوم", price: 5000, monthlyPrice: 5000, yearlyPrice: 45000, yearlySavings: 15000, popular: false,
-    features: ["فروع غير محدودة", "مستخدمون غير محدودون", "أصناف غير محدودة", "كل ميزات الاحترافي", "API كامل", "مدير حساب مخصص", "دعم 24/7"],
+    name: "متكامل",
+    price: 3500,
+    monthlyPrice: 3500,
+    yearlyPrice: 31500,
+    yearlySavings: 10500,
+    popular: true,
+    features: ["حتى 3 فروع", "20 مستخدم", "500 صنف", "إدارة المخزون", "ذكاء اصطناعي", "تقارير متقدمة", "نظام المطبخ KDS", "دعم أولوي"],
   },
 ];
 

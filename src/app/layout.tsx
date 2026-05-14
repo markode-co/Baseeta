@@ -19,6 +19,8 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
+export const metadataBase = new URL("https://baseeta.shop");
+
 export const metadata: Metadata = {
   title: "بسيطة | إدارة المطاعم والكافيهات",
   description: "نظام سحابي متكامل لإدارة المطاعم والكافيهات والكاشير. منصة واحدة لإدارة الطاولات، المخزون، الموظفين، والتقارير.",

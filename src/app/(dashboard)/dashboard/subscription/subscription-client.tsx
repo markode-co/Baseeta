@@ -2,7 +2,7 @@
 import { useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  Check, Star, Zap, Crown, AlertTriangle, Clock, CheckCircle,
+  Check, Star, Zap, AlertTriangle, Clock, CheckCircle,
   Phone, Upload, X, Loader2, Copy, Building2,
   ArrowRight, Shield, RefreshCw,
 } from "lucide-react";
@@ -32,23 +32,14 @@ const PLANS = {
     features: ["فرع واحد", "5 مستخدمين", "100 صنف", "نقطة البيع", "إدارة الطاولات", "تقارير أساسية"],
   },
   PRO: {
-    name: "احترافي",
-    monthlyPrice: 2500,
-    yearlyPrice: 22500,
-    yearlySavings: 7500,
+    name: "متكامل",
+    monthlyPrice: 3500,
+    yearlyPrice: 31500,
+    yearlySavings: 10500,
     color: "purple",
     icon: Star,
     popular: true,
-    features: ["3 فروع", "20 مستخدم", "500 صنف", "كل ميزات الأساسي", "إدارة المخزون", "تقارير متقدمة", "دعم أولوي"],
-  },
-  PREMIUM: {
-    name: "بريميوم",
-    monthlyPrice: 5000,
-    yearlyPrice: 45000,
-    yearlySavings: 15000,
-    color: "amber",
-    icon: Crown,
-    features: ["فروع غير محدودة", "مستخدمون غير محدودون", "أصناف غير محدودة", "كل ميزات الاحترافي", "مدير حساب مخصص", "دعم 24/7"],
+    features: ["حتى 3 فروع", "20 مستخدم", "500 صنف", "إدارة المخزون", "ذكاء اصطناعي", "تقارير متقدمة", "نظام المطبخ KDS", "دعم أولوي"],
   },
 };
 
@@ -403,7 +394,7 @@ export function SubscriptionClient({ subscription, orgStats, pendingRequest }: S
                   </div>
                   <ol className="text-sm text-slate-600 space-y-1.5 list-decimal list-inside">
                     <li>افتح تطبيق InstaPay</li>
-                    <li>اختر "تحويل" وأدخل الرقم أعلاه</li>
+                    <li>اختر تحويل وأدخل الرقم أعلاه</li>
                     <li>أدخل المبلغ: <strong>{planPrice.toLocaleString("ar-EG")} ج.م</strong> (للاشتراك {billingLabel})</li>
                     <li>اكتب في الملاحظات: بسيطة - {planName} - {billingLabel}</li>
                     <li>التقط لقطة شاشة بالإيصال وارفعها أدناه</li>

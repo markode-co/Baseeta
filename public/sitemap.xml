@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://baseeta.shop/</loc>
+    <priority>1.00</priority>
+  </url>
+  <url>
+    <loc>https://baseeta.shop/login</loc>
+  </url>
+  <url>
+    <loc>https://baseeta.shop/register</loc>
+  </url>
+  <url>
+    <loc>https://baseeta.shop/forgot-password</loc>
+  </url>
+  <url>
+    <loc>https://baseeta.shop/about</loc>
+  </url>
+  <url>
+    <loc>https://baseeta.shop/contact</loc>
+  </url>
+  <url>
+    <loc>https://baseeta.shop/privacy</loc>
+  </url>
+  <url>
+    <loc>https://baseeta.shop/security</loc>
+  </url>
+  <url>
+    <loc>https://baseeta.shop/terms</loc>
+  </url>
+</urlset>

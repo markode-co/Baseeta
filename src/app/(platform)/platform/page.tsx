@@ -73,7 +73,13 @@ async function RecentDataSection() {
     }),
     db.user.findMany({
       include: {
-        organization: { select: { name: true, address: true } },
+        organization: {
+          select: {
+            name: true,
+            address: true,
+            subscription: { select: { status: true, trialEnd: true } },
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
       take: 50,

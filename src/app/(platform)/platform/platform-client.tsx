@@ -38,8 +38,7 @@ type PaymentRequest = {
 
 const PLANS: Record<string, { name: string; price: number }> = {
   BASIC: { name: "أساسي", price: 1000 },
-  PRO: { name: "احترافي", price: 2500 },
-  PREMIUM: { name: "بريميوم", price: 5000 },
+  PRO: { name: "متكامل", price: 3500 },
 };
 
 const SUB_STATUS: Record<string, { label: string; color: string; bg: string }> = {
@@ -68,7 +67,7 @@ export function PlatformDashboard({ organizations, stats, recentOrgs, paymentReq
     name: string;
     email: string;
     phone: string | null;
-    organization: { name: string; address: string | null };
+    organization: { name: string; address: string | null; subscription: { status: string; trialEnd: Date | null } | null };
     createdAt: Date;
   }>;
 }) {
@@ -90,6 +89,9 @@ export function PlatformDashboard({ organizations, stats, recentOrgs, paymentReq
   const [isDeleting, setIsDeleting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
+  const trialUsers = allUsers.filter((user) => user.organization.subscription?.status === "TRIALING");
+  const subscribedUsers = allUsers.filter((user) => user.organization.subscription?.status === "ACTIVE");
+
   const pendingCount = paymentRequests.filter((r) => r.status === "PENDING").length;
 
   const filtered = orgs
@@ -104,6 +106,10 @@ export function PlatformDashboard({ organizations, stats, recentOrgs, paymentReq
       if (sortBy === "users") return b._count.users - a._count.users;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
+
+  const subscribedOrgs = filtered.filter((o) => o.subscription?.status === "ACTIVE");
+  const trialOrgs = filtered.filter((o) => o.subscription?.status === "TRIALING");
+  const otherOrgs = filtered.filter((o) => o.subscription?.status !== "ACTIVE" && o.subscription?.status !== "TRIALING");
 
   async function handleRequest(id: string, action: "APPROVE" | "REJECT", note?: string) {
     setProcessingId(id);
@@ -583,136 +589,346 @@ export function PlatformDashboard({ organizations, stats, recentOrgs, paymentReq
                 </select>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-800">
-                      {["المطعم", "الاشتراك", "المستخدمون", "الطلبات", "الإيرادات", "تاريخ التسجيل", "إجراءات"].map((h) => (
-                        <th key={h} className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/50">
-                    {filtered.map((org) => {
-                      const sub = org.subscription;
-                      const statusCfg = SUB_STATUS[sub?.status || ""] || { label: "بدون", color: "text-slate-500", bg: "bg-slate-800" };
-                      const isExpired = sub?.status === "TRIALING" && sub.trialEnd && new Date(sub.trialEnd) < new Date();
-                      return (
-                        <tr key={org.id} onClick={() => setDetailOrg(org)} className="hover:bg-slate-800/40 transition-colors cursor-pointer">
-                          <td className="px-4 py-3.5">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 bg-blue-600/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <Building2 className="w-4 h-4 text-blue-400" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="font-medium text-slate-200 truncate max-w-[130px]">{org.name}</p>
-                                <p className="text-xs text-slate-500 truncate max-w-[130px]">{org.email}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3.5">
-                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusCfg.bg} ${statusCfg.color}`}>
-                              {statusCfg.label}
-                              {isExpired && <span className="text-red-400"> (منتهي)</span>}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3.5 text-slate-300 font-medium">{org._count.users}</td>
-                          <td className="px-4 py-3.5 text-slate-300 font-medium">{org.orderCount.toLocaleString("ar")}</td>
-                          <td className="px-4 py-3.5 font-semibold text-green-400">{formatCurrency(org.revenue)}</td>
-                          <td className="px-4 py-3.5 text-slate-500 text-xs whitespace-nowrap">
-                            {new Date(org.createdAt).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" })}
-                          </td>
-                          <td className="px-4 py-3.5">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setActivatingOrgId(org.id); setActivatePlan("BASIC"); setActivateMonths("1"); }}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors whitespace-nowrap"
-                            >
-                              <CheckCircle className="w-3 h-3" /> تفعيل
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <div className="space-y-6">
+                <section className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between gap-3 flex-col sm:flex-row">
+                    <div>
+                      <h3 className="font-semibold text-slate-200">المطاعم والكافيهات المشتركة</h3>
+                      <p className="text-sm text-slate-500">عرض المنشآت التي لديها اشتراك نشط.</p>
+                    </div>
+                    <span className="text-xs text-slate-400">{subscribedOrgs.length} منشأة</span>
+                  </div>
 
-              <div className="px-5 py-3 border-t border-slate-800">
-                <p className="text-xs text-slate-500">
-                  {filtered.length} مطعم · {filtered.reduce((s, o) => s + o._count.users, 0)} مستخدم · {formatCurrency(filtered.reduce((s, o) => s + o.revenue, 0))} إيرادات
-                </p>
+                  {subscribedOrgs.length === 0 ? (
+                    <div className="p-10 text-center text-slate-500">لا توجد منشآت مشتركة حالياً.</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-800">
+                            {["المطعم", "الاشتراك", "المستخدمون", "الطلبات", "الإيرادات", "تاريخ التسجيل", "إجراءات"].map((h) => (
+                              <th key={h} className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase whitespace-nowrap">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/50">
+                          {subscribedOrgs.map((org) => {
+                            const sub = org.subscription;
+                            const statusCfg = SUB_STATUS[sub?.status || ""] || { label: "بدون", color: "text-slate-500", bg: "bg-slate-800" };
+                            return (
+                              <tr key={org.id} onClick={() => setDetailOrg(org)} className="hover:bg-slate-800/40 transition-colors cursor-pointer">
+                                <td className="px-4 py-3.5">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 bg-blue-600/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                      <Building2 className="w-4 h-4 text-blue-400" />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-slate-200 truncate max-w-[130px]">{org.name}</p>
+                                      <p className="text-xs text-slate-500 truncate max-w-[130px]">{org.email}</p>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3.5">
+                                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusCfg.bg} ${statusCfg.color}`}>
+                                    {statusCfg.label}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3.5 text-slate-300 font-medium">{org._count.users}</td>
+                                <td className="px-4 py-3.5 text-slate-300 font-medium">{org.orderCount.toLocaleString("ar")}</td>
+                                <td className="px-4 py-3.5 font-semibold text-green-400">{formatCurrency(org.revenue)}</td>
+                                <td className="px-4 py-3.5 text-slate-500 text-xs whitespace-nowrap">
+                                  {new Date(org.createdAt).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" })}
+                                </td>
+                                <td className="px-4 py-3.5">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setActivatingOrgId(org.id); setActivatePlan("BASIC"); setActivateMonths("1"); }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors whitespace-nowrap"
+                                  >
+                                    <CheckCircle className="w-3 h-3" /> تفعيل
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+
+                <section className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between gap-3 flex-col sm:flex-row">
+                    <div>
+                      <h3 className="font-semibold text-slate-200">المطاعم والكافيهات في فترة التجربة</h3>
+                      <p className="text-sm text-slate-500">عرض المنشآت التي لديها تجربة مجانية نشطة.</p>
+                    </div>
+                    <span className="text-xs text-slate-400">{trialOrgs.length} منشأة</span>
+                  </div>
+
+                  {trialOrgs.length === 0 ? (
+                    <div className="p-10 text-center text-slate-500">لا توجد منشآت في التجربة حالياً.</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-800">
+                            {["المطعم", "الاشتراك", "المستخدمون", "الطلبات", "الإيرادات", "تاريخ التسجيل", "إجراءات"].map((h) => (
+                              <th key={h} className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase whitespace-nowrap">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/50">
+                          {trialOrgs.map((org) => {
+                            const sub = org.subscription;
+                            const statusCfg = SUB_STATUS[sub?.status || ""] || { label: "بدون", color: "text-slate-500", bg: "bg-slate-800" };
+                            const isExpired = sub?.status === "TRIALING" && sub.trialEnd && new Date(sub.trialEnd) < new Date();
+                            return (
+                              <tr key={org.id} onClick={() => setDetailOrg(org)} className="hover:bg-slate-800/40 transition-colors cursor-pointer">
+                                <td className="px-4 py-3.5">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 bg-blue-600/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                      <Building2 className="w-4 h-4 text-blue-400" />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-slate-200 truncate max-w-[130px]">{org.name}</p>
+                                      <p className="text-xs text-slate-500 truncate max-w-[130px]">{org.email}</p>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3.5">
+                                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusCfg.bg} ${statusCfg.color}`}>
+                                    {statusCfg.label}
+                                    {isExpired && <span className="text-red-400"> (منتهي)</span>}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3.5 text-slate-300 font-medium">{org._count.users}</td>
+                                <td className="px-4 py-3.5 text-slate-300 font-medium">{org.orderCount.toLocaleString("ar")}</td>
+                                <td className="px-4 py-3.5 font-semibold text-green-400">{formatCurrency(org.revenue)}</td>
+                                <td className="px-4 py-3.5 text-slate-500 text-xs whitespace-nowrap">
+                                  {new Date(org.createdAt).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" })}
+                                </td>
+                                <td className="px-4 py-3.5">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setActivatingOrgId(org.id); setActivatePlan("BASIC"); setActivateMonths("1"); }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors whitespace-nowrap"
+                                  >
+                                    <CheckCircle className="w-3 h-3" /> تفعيل
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+
+                {otherOrgs.length > 0 && (
+                  <section className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+                    <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between gap-3 flex-col sm:flex-row">
+                      <div>
+                        <h3 className="font-semibold text-slate-200">المنشآت الأخرى</h3>
+                        <p className="text-sm text-slate-500">عرض المنشآت التي لديها حالة أخرى غير التجربة أو الاشتراك النشط.</p>
+                      </div>
+                      <span className="text-xs text-slate-400">{otherOrgs.length} منشأة</span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-800">
+                            {["المطعم", "الاشتراك", "المستخدمون", "الطلبات", "الإيرادات", "تاريخ التسجيل", "إجراءات"].map((h) => (
+                              <th key={h} className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase whitespace-nowrap">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/50">
+                          {otherOrgs.map((org) => {
+                            const sub = org.subscription;
+                            const statusCfg = SUB_STATUS[sub?.status || ""] || { label: "بدون", color: "text-slate-500", bg: "bg-slate-800" };
+                            return (
+                              <tr key={org.id} onClick={() => setDetailOrg(org)} className="hover:bg-slate-800/40 transition-colors cursor-pointer">
+                                <td className="px-4 py-3.5">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 bg-blue-600/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                      <Building2 className="w-4 h-4 text-blue-400" />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-slate-200 truncate max-w-[130px]">{org.name}</p>
+                                      <p className="text-xs text-slate-500 truncate max-w-[130px]">{org.email}</p>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3.5">
+                                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusCfg.bg} ${statusCfg.color}`}>
+                                    {statusCfg.label}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3.5 text-slate-300 font-medium">{org._count.users}</td>
+                                <td className="px-4 py-3.5 text-slate-300 font-medium">{org.orderCount.toLocaleString("ar")}</td>
+                                <td className="px-4 py-3.5 font-semibold text-green-400">{formatCurrency(org.revenue)}</td>
+                                <td className="px-4 py-3.5 text-slate-500 text-xs whitespace-nowrap">
+                                  {new Date(org.createdAt).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" })}
+                                </td>
+                                <td className="px-4 py-3.5">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setActivatingOrgId(org.id); setActivatePlan("BASIC"); setActivateMonths("1"); }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors whitespace-nowrap"
+                                  >
+                                    <CheckCircle className="w-3 h-3" /> تفعيل
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                )}
               </div>
             </div>
           )}
 
           {/* ── USERS TAB ── */}
           {tab === "users" && (
-            <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-800 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h3 className="font-semibold text-slate-200">جميع المستخدمين في النظام</h3>
-                  <p className="text-sm text-slate-500">عرض بيانات المستخدمين وتنزيلها بدقة</p>
-                </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <button
-                    onClick={downloadUsersAsExcel}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm transition-colors"
-                  >
-                    <Download className="w-4 h-4" />تنزيل المستخدمين
-                  </button>
+            <div className="space-y-6">
+              <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-800 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="font-semibold text-slate-200">جميع المستخدمين في النظام</h3>
+                    <p className="text-sm text-slate-500">عرض المستخدمين حسب حالة الاشتراك: تجربة 14 يوم والمشتركين.</p>
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <button
+                      onClick={downloadUsersAsExcel}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm transition-colors"
+                    >
+                      <Download className="w-4 h-4" />تنزيل المستخدمين
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-800/50">
-                    <tr>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">المستخدم</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">المطعم</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">البريد الإلكتروني</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">الهاتف</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">العنوان</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">تاريخ التسجيل</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800">
-                    {allUsers.map((user) => (
-                      <tr key={user.id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 bg-purple-600/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                              <Users className="w-4 h-4 text-purple-400" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-medium text-slate-200 truncate max-w-[130px]">{user.name}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className="text-sm text-slate-300">{user.organization.name}</span>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className="text-sm text-slate-300 font-mono">{user.email}</span>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className="text-sm text-slate-300">{user.phone || "—"}</span>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className="text-sm text-slate-300 truncate max-w-[150px]">{user.organization.address || "—"}</span>
-                        </td>
-                        <td className="px-4 py-3.5 text-slate-500 text-xs whitespace-nowrap">
-                          {new Date(user.createdAt).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" })}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <div className="grid gap-6">
+                <section className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-800">
+                    <div className="flex items-center justify-between gap-3 flex-col sm:flex-row">
+                      <div>
+                        <h3 className="font-semibold text-slate-200">المستخدمون في فترة التجربة المجانية</h3>
+                        <p className="text-sm text-slate-500">عرض المستخدمين الذين ينتمون إلى منشآت بحالة اشتراك تجريبية.</p>
+                      </div>
+                      <span className="text-xs text-slate-400">{trialUsers.length} مستخدم</span>
+                    </div>
+                  </div>
 
-              <div className="px-5 py-3 border-t border-slate-800">
-                <p className="text-xs text-slate-500">
-                  {allUsers.length} مستخدم
-                </p>
+                  {trialUsers.length === 0 ? (
+                    <div className="p-10 text-center text-slate-500">لا يوجد مستخدمون في التجربة المجانية حالياً.</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-slate-800/50">
+                          <tr>
+                            <th className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">المستخدم</th>
+                            <th className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">المطعم</th>
+                            <th className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">البريد الإلكتروني</th>
+                            <th className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">الهاتف</th>
+                            <th className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">انتهاء التجربة</th>
+                            <th className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">تاريخ التسجيل</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800">
+                          {trialUsers.map((user) => (
+                            <tr key={user.id} className="hover:bg-slate-800/40 transition-colors">
+                              <td className="px-4 py-3.5">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-8 h-8 bg-purple-600/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <Users className="w-4 h-4 text-purple-400" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-slate-200 truncate max-w-[130px]">{user.name}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3.5">
+                                <span className="text-sm text-slate-300">{user.organization.name}</span>
+                              </td>
+                              <td className="px-4 py-3.5">
+                                <span className="text-sm text-slate-300 font-mono">{user.email}</span>
+                              </td>
+                              <td className="px-4 py-3.5">
+                                <span className="text-sm text-slate-300">{user.phone || "—"}</span>
+                              </td>
+                              <td className="px-4 py-3.5 text-slate-300 text-sm whitespace-nowrap">
+                                {user.organization.subscription?.trialEnd ? new Date(user.organization.subscription.trialEnd).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" }) : "—"}
+                              </td>
+                              <td className="px-4 py-3.5 text-slate-500 text-xs whitespace-nowrap">
+                                {new Date(user.createdAt).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+
+                <section className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between gap-3 flex-col sm:flex-row">
+                    <div>
+                      <h3 className="font-semibold text-slate-200">المستخدمون المشتركون</h3>
+                      <p className="text-sm text-slate-500">عرض المستخدمين الذين ينتمون إلى منشآت لديها اشتراك نشط.</p>
+                    </div>
+                    <span className="text-xs text-slate-400">{subscribedUsers.length} مستخدم</span>
+                  </div>
+
+                  {subscribedUsers.length === 0 ? (
+                    <div className="p-10 text-center text-slate-500">لا يوجد مستخدمون مشتركون حالياً.</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-slate-800/50">
+                          <tr>
+                            <th className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">المستخدم</th>
+                            <th className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">المطعم</th>
+                            <th className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">البريد الإلكتروني</th>
+                            <th className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">الهاتف</th>
+                            <th className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">تاريخ التسجيل</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800">
+                          {subscribedUsers.map((user) => (
+                            <tr key={user.id} className="hover:bg-slate-800/40 transition-colors">
+                              <td className="px-4 py-3.5">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-8 h-8 bg-purple-600/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <Users className="w-4 h-4 text-purple-400" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-slate-200 truncate max-w-[130px]">{user.name}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3.5">
+                                <span className="text-sm text-slate-300">{user.organization.name}</span>
+                              </td>
+                              <td className="px-4 py-3.5">
+                                <span className="text-sm text-slate-300 font-mono">{user.email}</span>
+                              </td>
+                              <td className="px-4 py-3.5">
+                                <span className="text-sm text-slate-300">{user.phone || "—"}</span>
+                              </td>
+                              <td className="px-4 py-3.5 text-slate-500 text-xs whitespace-nowrap">
+                                {new Date(user.createdAt).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
               </div>
             </div>
           )}
