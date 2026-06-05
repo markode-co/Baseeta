@@ -1,13 +1,113 @@
+"use client";
+
 import * as iconv from "iconv-lite";
 import { ArabicShaper } from "arabic-persian-reshaper";
 import bidiFactory from "bidi-js";
 
 const bidi = bidiFactory();
 
-export type PrinterType = "browser" | "bluetooth" | "network" | "usb";
+export type PrinterId = "cashier_printer" | "kitchen_printer" | "hall_printer";
+export type PrinterType = "browser" | "bluetooth" | "usb" | "network";
+export type ConnectionType = "browser" | "bluetooth" | "usb" | "network";
 export type PrinterCodePage = "cp864" | "windows-1256" | "utf8";
-export type PrinterProtocol = "escpos" | "tspl";
 export type PaperWidth = 58 | 80;
+export type PrinterProtocol = "escpos" | "tspl";
+export type PrinterMode = "none";
+
+export interface PrinterDefaults {
+  codePage: PrinterCodePage;
+  density: number;
+  direction: 0 | 1;
+  printerMode: PrinterMode;
+  paperWidth: PaperWidth;
+  retryAttempts: number;
+}
+
+export interface PrinterDeviceConfig extends PrinterDefaults {
+  id: PrinterId;
+  label: string;
+  enabled: boolean;
+  connectionType: ConnectionType;
+  deviceName?: string;
+  deviceAddress?: string;
+  bluetoothDeviceId?: string;
+  usbVendorId?: number;
+  usbProductId?: number;
+  usbSerialNumber?: string;
+  networkIp?: string;
+  networkPort?: number;
+  lastConnected?: string;
+}
+
+export interface PrinterManagerConfig {
+  cashier_printer: PrinterDeviceConfig;
+  kitchen_printer: PrinterDeviceConfig;
+  hall_printer: PrinterDeviceConfig;
+}
+
+export interface PrinterRuntimeStatus {
+  id: PrinterId;
+  deviceName?: string;
+  deviceAddress?: string;
+  connectionType: ConnectionType;
+  isConnected: boolean;
+  lastConnected?: string;
+  queueLength: number;
+  signalStrength?: string;
+}
+
+export interface PrintQueueJob {
+  printerId: PrinterId;
+  data: Uint8Array;
+  description: string;
+}
+
+export interface ReceiptLineItem {
+  name: string;
+  nameAr: string | null;
+  qty: number;
+  price?: number;
+  notes?: string | null;
+  modifiers?: Array<{ name: string; nameAr?: string | null; qty?: number }>;
+}
+
+export interface CashierReceiptData {
+  orgName: string;
+  orgAddress?: string;
+  orgWebsite?: string;
+  logoText?: string;
+  receiptHeader?: string;
+  orderNumber: string | number;
+  createdAt?: Date | string;
+  customerName?: string;
+  customerPhone?: string;
+  tableInfo?: string;
+  items: ReceiptLineItem[];
+  subtotal: number;
+  discount?: number;
+  tax: number;
+  total: number;
+  paymentMethod: string;
+  footer?: string;
+  qrData?: string;
+}
+
+export interface KitchenTicketData {
+  orderNumber: string | number;
+  createdAt?: Date | string;
+  tableInfo?: string;
+  orderType?: string;
+  items: ReceiptLineItem[];
+  notes?: string;
+}
+
+export interface HallTicketData {
+  orderNumber: string | number;
+  tableInfo?: string;
+  createdAt?: Date | string;
+  items: ReceiptLineItem[];
+  notes?: string;
+}
 
 export interface PrinterConfig {
   type: PrinterType;
@@ -22,38 +122,236 @@ export interface PrinterConfig {
   retryAttempts?: number;
 }
 
-export function loadPrinterConfig(): PrinterConfig {
+type BluetoothWriteCharacteristic = BluetoothRemoteGATTCharacteristic;
+type BluetoothSession = {
+  device: BluetoothDevice;
+  server: BluetoothRemoteGATTServer;
+  characteristic: BluetoothWriteCharacteristic;
+};
+
+interface UsbEndpoint {
+  endpointNumber: number;
+  direction: "in" | "out";
+}
+
+interface UsbAlternate {
+  interfaceClass?: number;
+  endpoints: UsbEndpoint[];
+}
+
+interface UsbInterface {
+  interfaceNumber: number;
+  alternates: UsbAlternate[];
+}
+
+interface UsbDevice {
+  productName?: string;
+  vendorId: number;
+  productId: number;
+  serialNumber?: string;
+  opened: boolean;
+  configuration?: { interfaces: UsbInterface[] };
+  open(): Promise<void>;
+  selectConfiguration(configurationValue: number): Promise<void>;
+  claimInterface(interfaceNumber: number): Promise<void>;
+  transferOut(endpointNumber: number, data: BufferSource): Promise<unknown>;
+}
+
+interface UsbNavigator {
+  getDevices(): Promise<UsbDevice[]>;
+  requestDevice(options: { filters: Array<{ vendorId?: number; productId?: number }> }): Promise<UsbDevice>;
+}
+
+type UsbSession = {
+  device: UsbDevice;
+  endpointNumber: number;
+  interfaceNumber: number;
+};
+
+const STORAGE_KEY = "printer-manager-config-v1";
+const LEGACY_STORAGE_KEY = "printer-config";
+const RECEIPT_SETTINGS_KEY = "receipt-settings";
+
+export const DEFAULT_PRINTER_SETTINGS: PrinterDefaults = {
+  codePage: "cp864",
+  density: 8,
+  direction: 0,
+  printerMode: "none",
+  paperWidth: 58,
+  retryAttempts: 3,
+};
+
+const DEFAULT_MANAGER_CONFIG: PrinterManagerConfig = {
+  cashier_printer: {
+    ...DEFAULT_PRINTER_SETTINGS,
+    id: "cashier_printer",
+    label: "طابعة الكاشير",
+    enabled: true,
+    connectionType: "bluetooth",
+  },
+  kitchen_printer: {
+    ...DEFAULT_PRINTER_SETTINGS,
+    id: "kitchen_printer",
+    label: "طابعة المطبخ",
+    enabled: false,
+    connectionType: "bluetooth",
+  },
+  hall_printer: {
+    ...DEFAULT_PRINTER_SETTINGS,
+    id: "hall_printer",
+    label: "طابعة الصالة",
+    enabled: false,
+    connectionType: "bluetooth",
+  },
+};
+
+const ESC_POS_CODE_PAGE_NUMBERS: Record<PrinterCodePage, number> = {
+  cp864: 0x16,
+  "windows-1256": 0x11,
+  utf8: 0xff,
+};
+
+const BLUETOOTH_SERVICES = [
+  "000018f0-0000-1000-8000-00805f9b34fb",
+  "49535343-fe7d-4ae5-8fa9-9fafd205e455",
+  "6e400001-b5a3-f393-e0a9-e50e24dcca9e",
+];
+
+const BLUETOOTH_WRITE_CHARACTERISTICS = [
+  "00002af1-0000-1000-8000-00805f9b34fb",
+  "49535343-8841-43f4-a8d4-ecbe34729bb3",
+  "6e400002-b5a3-f393-e0a9-e50e24dcca9e",
+];
+
+const USB_THERMAL_PRINTER_FILTERS = [
+  { vendorId: 0x0483 },
+  { vendorId: 0x1208 },
+  { vendorId: 0x0493 },
+  { vendorId: 0x04b8 },
+  { vendorId: 0x0fe6 },
+];
+
+function cloneConfig(config: PrinterManagerConfig): PrinterManagerConfig {
+  return JSON.parse(JSON.stringify(config)) as PrinterManagerConfig;
+}
+
+function mergeConfig(saved: Partial<PrinterManagerConfig> | null): PrinterManagerConfig {
+  const base = cloneConfig(DEFAULT_MANAGER_CONFIG);
+  if (!saved) return base;
+  return {
+    cashier_printer: { ...base.cashier_printer, ...saved.cashier_printer },
+    kitchen_printer: { ...base.kitchen_printer, ...saved.kitchen_printer },
+    hall_printer: { ...base.hall_printer, ...saved.hall_printer },
+  };
+}
+
+export function loadPrinterManagerConfig(): PrinterManagerConfig {
   try {
-    const s = localStorage.getItem("printer-config");
-    if (s) return JSON.parse(s);
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return mergeConfig(JSON.parse(raw) as Partial<PrinterManagerConfig>);
   } catch {}
-  return { type: "browser" };
+
+  const legacy = loadLegacyPrinterConfig();
+  if (legacy) {
+    return mergeConfig({
+      cashier_printer: {
+        id: "cashier_printer",
+        label: "طابعة الكاشير",
+        enabled: true,
+        connectionType: legacy.type,
+        deviceName: legacy.bluetoothName,
+        bluetoothDeviceId: legacy.bluetoothDeviceId,
+        networkIp: legacy.networkIp,
+        networkPort: legacy.networkPort,
+        codePage: legacy.codePage || "cp864",
+        paperWidth: legacy.paperWidth || 58,
+        retryAttempts: legacy.retryAttempts || 3,
+        density: 8,
+        direction: 0,
+        printerMode: "none",
+      },
+    });
+  }
+
+  return cloneConfig(DEFAULT_MANAGER_CONFIG);
+}
+
+export function savePrinterManagerConfig(config: PrinterManagerConfig) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+  } catch {}
+}
+
+function loadLegacyPrinterConfig(): PrinterConfig | null {
+  try {
+    const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+    return raw ? JSON.parse(raw) as PrinterConfig : null;
+  } catch {
+    return null;
+  }
+}
+
+export function loadPrinterConfig(): PrinterConfig {
+  const cashier = loadPrinterManagerConfig().cashier_printer;
+  return {
+    type: cashier.connectionType,
+    bluetoothName: cashier.deviceName,
+    bluetoothDeviceId: cashier.bluetoothDeviceId,
+    networkIp: cashier.networkIp,
+    networkPort: cashier.networkPort,
+    codePage: cashier.codePage,
+    paperWidth: cashier.paperWidth,
+    retryAttempts: cashier.retryAttempts,
+  };
 }
 
 export function savePrinterConfig(cfg: PrinterConfig) {
+  const managerConfig = loadPrinterManagerConfig();
+  managerConfig.cashier_printer = {
+    ...managerConfig.cashier_printer,
+    connectionType: cfg.type,
+    deviceName: cfg.bluetoothName,
+    bluetoothDeviceId: cfg.bluetoothDeviceId,
+    networkIp: cfg.networkIp,
+    networkPort: cfg.networkPort,
+    codePage: cfg.codePage || "cp864",
+    paperWidth: cfg.paperWidth || 58,
+    retryAttempts: cfg.retryAttempts || 3,
+  };
+  savePrinterManagerConfig(managerConfig);
   try {
-    localStorage.setItem("printer-config", JSON.stringify(cfg));
+    localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(cfg));
   } catch {}
 }
 
 export function loadReceiptSettings(): { address: string; website: string; header: string } {
   try {
-    const s = localStorage.getItem("receipt-settings");
-    if (s) return JSON.parse(s);
+    const raw = localStorage.getItem(RECEIPT_SETTINGS_KEY);
+    if (raw) return JSON.parse(raw) as { address: string; website: string; header: string };
   } catch {}
   return { address: "", website: "", header: "" };
 }
 
-export function saveReceiptSettings(s: { address: string; website: string; header: string }) {
-  try { localStorage.setItem("receipt-settings", JSON.stringify(s)); } catch {}
+export function saveReceiptSettings(settings: { address: string; website: string; header: string }) {
+  try {
+    localStorage.setItem(RECEIPT_SETTINGS_KEY, JSON.stringify(settings));
+  } catch {}
 }
 
-const DEFAULT_PRINTER_CODE_PAGE: PrinterCodePage = "cp864";
-const ESC_POS_CODE_PAGE_NUMBERS: Record<PrinterCodePage, number> = {
-  cp864: 0x16,
-  "windows-1256": 0x11,
-  "utf8": 0xff, // UTF-8 support (if printer supports)
-};
+function escBytes(...bytes: number[]): Uint8Array {
+  return new Uint8Array(bytes);
+}
+
+function concatBytes(parts: Uint8Array[]): Uint8Array {
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) {
+    result.set(part, offset);
+    offset += part.length;
+  }
+  return result;
+}
 
 function reshapeArabicText(value: string): string {
   try {
@@ -64,524 +362,616 @@ function reshapeArabicText(value: string): string {
 }
 
 function reorderArabicText(value: string): string {
-  const levels = bidi.getEmbeddingLevels(value, "rtl");
-  const chars = Array.from(value);
-  const mirror = bidi.getMirroredCharactersMap(value, levels);
-  if (mirror instanceof Map) {
-    mirror.forEach((replacement, idx) => {
-      if (replacement) chars[idx] = replacement;
-    });
+  try {
+    const levels = bidi.getEmbeddingLevels(value, "rtl");
+    const chars = Array.from(value);
+    const mirror = bidi.getMirroredCharactersMap(value, levels);
+    if (mirror instanceof Map) {
+      mirror.forEach((replacement, idx) => {
+        if (replacement) chars[idx] = replacement;
+      });
+    }
+    const segments = bidi.getReorderSegments(value, levels);
+    for (const [start, end] of segments) {
+      const reversed = chars.slice(start, end + 1).reverse();
+      chars.splice(start, end - start + 1, ...reversed);
+    }
+    return chars.join("");
+  } catch {
+    return value;
   }
-  const segments = bidi.getReorderSegments(value, levels);
-  for (const [start, end] of segments) {
-    const reversed = chars.slice(start, end + 1).reverse();
-    chars.splice(start, end - start + 1, ...reversed);
-  }
-  return chars.join("");
 }
 
-function encodeEscPosText(value: string, codePage: PrinterCodePage): Uint8Array {
-  const normalized = value.replace(/\r?\n/g, "\n");
+function encodeText(value: string, codePage: PrinterCodePage): Uint8Array {
+  const normalized = value.replace(/\r?\n/g, "\n").replace(/[^\S\n]+/g, " ");
+  if (codePage === "utf8") return new TextEncoder().encode(normalized);
   const shaped = reshapeArabicText(normalized);
   const reordered = reorderArabicText(shaped);
-  
-  // Use appropriate encoding
-  if (codePage === "utf8") {
-    // For UTF-8, use TextEncoder directly
-    return new TextEncoder().encode(reordered);
-  }
-  
   return iconv.encode(reordered, codePage);
 }
 
-function selectEscPosCodePage(codePage: PrinterCodePage): Uint8Array {
-  // Only send code page command for supported code pages
-  // UTF-8 doesn't need explicit selection on most printers
-  if (codePage === "utf8") {
-    return new Uint8Array(0); // Empty array
-  }
+function escText(value: string, codePage: PrinterCodePage): Uint8Array {
+  return encodeText(value, codePage);
+}
+
+function codePageCommand(codePage: PrinterCodePage): Uint8Array {
+  if (codePage === "utf8") return new Uint8Array();
   return escBytes(0x1b, 0x74, ESC_POS_CODE_PAGE_NUMBERS[codePage]);
 }
 
-type BluetoothDeviceRecord = { id: string; name?: string; gatt?: any };
-type BluetoothNavigatorLike = { getDevices?: () => Promise<BluetoothDeviceRecord[]>; requestDevice(options: any): Promise<BluetoothDeviceRecord> };
-
-async function getPersistedBluetoothDevice(bt: BluetoothNavigatorLike, deviceId?: string): Promise<BluetoothDeviceRecord | null> {
-  if (!deviceId || typeof bt.getDevices !== "function") return null;
-  try {
-    const devices = await bt.getDevices();
-    return devices.find((device) => device.id === deviceId) || null;
-  } catch {
-    return null;
-  }
+function lineWidth(paperWidth: PaperWidth): number {
+  return paperWidth === 80 ? 48 : 32;
 }
 
-async function requestBluetoothDevice(bt: BluetoothNavigatorLike, deviceName?: string): Promise<BluetoothDeviceRecord> {
-  const optionalServices = [
-    "000018f0-0000-1000-8000-00805f9b34fb",
-    "49535343-fe7d-4ae5-8fa9-9fafd205e455",
-    "6e400001-b5a3-f393-e0a9-e50e24dcca9e",
+function formatDateTime(value?: Date | string): string {
+  const d = value ? new Date(value) : new Date();
+  return new Intl.DateTimeFormat("ar-EG-u-nu-latn", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
+}
+
+function money(value: number): string {
+  return value.toFixed(2);
+}
+
+function clampText(value: string, max: number): string {
+  const chars = Array.from(value);
+  return chars.length > max ? chars.slice(0, Math.max(0, max - 1)).join("") + "…" : value;
+}
+
+function qrEscPos(data: string): Uint8Array[] {
+  const bytes = new TextEncoder().encode(data);
+  const storeLength = bytes.length + 3;
+  const pL = storeLength % 256;
+  const pH = Math.floor(storeLength / 256);
+  return [
+    escBytes(0x1d, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00),
+    escBytes(0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, 0x05),
+    escBytes(0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x30),
+    concatBytes([escBytes(0x1d, 0x28, 0x6b, pL, pH, 0x31, 0x50, 0x30), bytes]),
+    escBytes(0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30),
   ];
-  const requestOptions: any = { optionalServices };
-  if (deviceName) {
-    requestOptions.filters = [{ name: deviceName }];
-  } else {
-    requestOptions.acceptAllDevices = true;
-  }
-  return bt.requestDevice(requestOptions);
 }
 
-export function buildReceiptHtml(data: {
-  orgName: string;
-  orgAddress?: string;
-  orgWebsite?: string;
-  receiptHeader?: string;
-  orderNumber: string | number;
-  items: Array<{ name: string; nameAr: string | null; qty: number; price: number }>;
-  subtotal: number;
-  discount?: number;
-  tax: number;
-  total: number;
-  paymentMethod: string;
-  footer?: string;
-  tableInfo?: string;
-}): string {
-  const fmt = (n: number) => n.toFixed(2);
-  const rows = data.items
-    .map(
-      (i) =>
-        `<tr>
-          <td style="text-align:right;padding:3px 4px;">${i.nameAr || i.name}</td>
-          <td style="text-align:center;padding:3px 4px;">${i.qty}</td>
-          <td style="text-align:left;padding:3px 4px;">${fmt(i.price * i.qty)}</td>
-        </tr>`
-    )
-    .join("");
+class EscPosBuilder {
+  private parts: Uint8Array[] = [];
+  private readonly codePage: PrinterCodePage;
+  readonly width: number;
 
-  const qrUrl = data.orgWebsite
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(data.orgWebsite)}&margin=2`
-    : "";
+  constructor(settings: Pick<PrinterDeviceConfig, "codePage" | "paperWidth" | "density">) {
+    this.codePage = settings.codePage || "cp864";
+    this.width = lineWidth(settings.paperWidth || 58);
+    this.raw(escBytes(0x1b, 0x40));
+    this.raw(codePageCommand(this.codePage));
+    this.raw(escBytes(0x1b, 0x32));
+    this.raw(escBytes(0x1d, 0x45, Math.max(0, Math.min(8, settings.density ?? 8))));
+  }
 
-  const websiteDomain = data.orgWebsite
-    ? data.orgWebsite.replace(/^https?:\/\//, "").replace(/\/$/, "")
-    : "";
+  raw(bytes: Uint8Array) {
+    this.parts.push(bytes);
+    return this;
+  }
 
+  text(value: string) {
+    this.parts.push(escText(value, this.codePage));
+    return this;
+  }
+
+  line(value = "") {
+    if (value) this.text(value);
+    this.raw(escBytes(0x0a));
+    return this;
+  }
+
+  separator(char = "-") {
+    return this.line(char.repeat(this.width));
+  }
+
+  align(value: "left" | "center" | "right") {
+    this.raw(escBytes(0x1b, 0x61, value === "center" ? 1 : value === "right" ? 2 : 0));
+    return this;
+  }
+
+  bold(enabled: boolean) {
+    this.raw(escBytes(0x1b, 0x45, enabled ? 1 : 0));
+    return this;
+  }
+
+  size(mode: "normal" | "large" | "xlarge") {
+    this.raw(escBytes(0x1d, 0x21, mode === "xlarge" ? 0x11 : mode === "large" ? 0x01 : 0x00));
+    return this;
+  }
+
+  row(label: string, value: string) {
+    const left = Array.from(label);
+    const right = Array.from(value);
+    const spaces = Math.max(1, this.width - left.length - right.length);
+    return this.line(`${label}${" ".repeat(spaces)}${value}`);
+  }
+
+  qr(data: string) {
+    this.align("center");
+    for (const part of qrEscPos(data)) this.raw(part);
+    this.line();
+    return this;
+  }
+
+  cut() {
+    this.line().line().raw(escBytes(0x1b, 0x64, 0x02)).raw(escBytes(0x1d, 0x56, 0x00));
+    return this;
+  }
+
+  bytes(): Uint8Array {
+    return concatBytes(this.parts);
+  }
+}
+
+function buildHeader(builder: EscPosBuilder, title: string, subtitle?: string) {
+  builder.align("center").bold(true).size("large").line(title).size("normal").bold(false);
+  if (subtitle) builder.line(subtitle);
+  builder.separator("=");
+}
+
+export function buildCashierReceipt(data: CashierReceiptData, config?: Partial<PrinterDeviceConfig>): Uint8Array {
+  const builder = new EscPosBuilder({ ...DEFAULT_PRINTER_SETTINGS, ...config });
+  const qrData = data.qrData || data.orgWebsite || `ORDER:${data.orderNumber};TOTAL:${money(data.total)}`;
+
+  builder.align("center");
+  if (data.logoText) builder.bold(true).size("large").line(data.logoText).size("normal").bold(false);
+  if (data.receiptHeader) builder.line(data.receiptHeader);
+  buildHeader(builder, data.orgName, data.orgAddress);
+  builder
+    .align("right")
+    .row("رقم الطلب", `#${data.orderNumber}`)
+    .row("التاريخ", formatDateTime(data.createdAt));
+  if (data.tableInfo) builder.row("المكان", data.tableInfo);
+  if (data.customerName) builder.row("العميل", data.customerName);
+  if (data.customerPhone) builder.row("الهاتف", data.customerPhone);
+  builder.separator();
+
+  builder.bold(true).row("الصنف", "الإجمالي").bold(false);
+  for (const item of data.items) {
+    const name = clampText(item.nameAr || item.name, builder.width - 10);
+    builder.line(name);
+    builder.row(`${item.qty} x ${money(item.price || 0)}`, money((item.price || 0) * item.qty));
+    if (item.notes) builder.line(`ملاحظة: ${item.notes}`);
+  }
+
+  builder
+    .separator()
+    .row("المجموع", money(data.subtotal));
+  if (data.discount && data.discount > 0) builder.row("الخصم", `-${money(data.discount)}`);
+  builder
+    .row("الضريبة", money(data.tax))
+    .bold(true)
+    .size("large")
+    .row("الإجمالي", money(data.total))
+    .size("normal")
+    .bold(false)
+    .row("الدفع", data.paymentMethod)
+    .separator();
+
+  if (qrData) builder.qr(qrData);
+  if (data.footer) builder.align("center").line(data.footer);
+  builder.align("center").line("شكراً لزيارتكم").cut();
+  return builder.bytes();
+}
+
+export function buildKitchenTicket(data: KitchenTicketData, config?: Partial<PrinterDeviceConfig>): Uint8Array {
+  const builder = new EscPosBuilder({ ...DEFAULT_PRINTER_SETTINGS, ...config });
+  buildHeader(builder, "طلب المطبخ", `#${data.orderNumber}`);
+  builder
+    .align("right")
+    .row("التاريخ", formatDateTime(data.createdAt));
+  if (data.tableInfo) builder.row("المكان", data.tableInfo);
+  if (data.orderType) builder.row("النوع", data.orderType);
+  builder.separator();
+
+  for (const item of data.items) {
+    builder.bold(true).line(`${item.qty} x ${item.nameAr || item.name}`).bold(false);
+    if (item.modifiers?.length) {
+      item.modifiers.forEach((modifier) => builder.line(`+ ${modifier.qty || 1} ${modifier.nameAr || modifier.name}`));
+    }
+    if (item.notes) builder.line(`ملاحظة: ${item.notes}`);
+    builder.separator();
+  }
+  if (data.notes) builder.line(`ملاحظات الطلب: ${data.notes}`);
+  builder.cut();
+  return builder.bytes();
+}
+
+export function buildHallTicket(data: HallTicketData, config?: Partial<PrinterDeviceConfig>): Uint8Array {
+  const builder = new EscPosBuilder({ ...DEFAULT_PRINTER_SETTINGS, ...config });
+  buildHeader(builder, "طلب الصالة", data.tableInfo || `#${data.orderNumber}`);
+  builder.align("right").row("رقم الطلب", `#${data.orderNumber}`).row("التاريخ", formatDateTime(data.createdAt)).separator();
+  for (const item of data.items) {
+    builder.line(`${item.qty} x ${item.nameAr || item.name}`);
+    if (item.notes) builder.line(`ملاحظة: ${item.notes}`);
+  }
+  if (data.notes) builder.separator().line(`ملاحظات: ${data.notes}`);
+  builder.cut();
+  return builder.bytes();
+}
+
+export function buildReceiptHtml(data: CashierReceiptData): string {
+  const rows = data.items.map((item) => `
+    <tr>
+      <td>${item.nameAr || item.name}</td>
+      <td>${item.qty}</td>
+      <td>${money((item.price || 0) * item.qty)}</td>
+    </tr>
+  `).join("");
+  const qr = data.qrData || data.orgWebsite || "";
+  const qrUrl = qr ? `https://api.qrserver.com/v1/create-qr-code/?size=96x96&data=${encodeURIComponent(qr)}&margin=2` : "";
   return `
-    <div style="font-family:'Courier New',monospace;width:76mm;margin:0 auto;direction:rtl;font-size:12px;padding:4px;">
-      ${data.receiptHeader ? `<p style="text-align:center;margin:2px 0;font-size:11px;color:#555;">${data.receiptHeader}</p>` : ""}
-      <h2 style="text-align:center;margin:4px 0;font-size:18px;font-weight:900;">${data.orgName}</h2>
-      <p style="text-align:center;margin:0;font-size:12px;color:#333;">بسيطة</p>
-      <p style="text-align:center;margin:0;font-size:11px;color:#555;">إدارة المطاعم و الكافيهات</p>
-      ${data.orgAddress ? `<p style="text-align:center;margin:2px 0;font-size:10px;color:#555;">${data.orgAddress}</p>` : ""}
-      <p style="text-align:center;margin:2px 0;font-size:11px;">طلب رقم: #${data.orderNumber}</p>
-      ${data.tableInfo ? `<p style="text-align:center;margin:2px 0;font-size:11px;">${data.tableInfo}</p>` : ""}
-      <hr style="border:1px dashed #000;margin:6px 0;"/>
-      <table style="width:100%;border-collapse:collapse;font-size:11px;">
-        <thead><tr style="border-bottom:1px solid #000;">
-          <th style="text-align:right;padding:2px 4px;">الصنف</th>
-          <th style="text-align:center;padding:2px 4px;">الكمية</th>
-          <th style="text-align:left;padding:2px 4px;">المبلغ</th>
-        </tr></thead>
+    <div style="direction:rtl;width:76mm;margin:0 auto;font-family:Arial,'Tahoma',sans-serif;font-size:12px;color:#111">
+      ${data.receiptHeader ? `<p style="text-align:center;margin:2px 0">${data.receiptHeader}</p>` : ""}
+      <h2 style="text-align:center;margin:4px 0;font-size:18px">${data.orgName}</h2>
+      ${data.orgAddress ? `<p style="text-align:center;margin:2px 0">${data.orgAddress}</p>` : ""}
+      <hr style="border:0;border-top:1px dashed #111;margin:6px 0" />
+      <p>رقم الطلب: #${data.orderNumber}</p>
+      <p>التاريخ: ${formatDateTime(data.createdAt)}</p>
+      ${data.tableInfo ? `<p>${data.tableInfo}</p>` : ""}
+      ${data.customerName ? `<p>العميل: ${data.customerName}</p>` : ""}
+      <table style="width:100%;border-collapse:collapse;text-align:right">
+        <thead><tr><th>الصنف</th><th>الكمية</th><th>الإجمالي</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <hr style="border:1px dashed #000;margin:6px 0;"/>
-      <p style="margin:2px 0;">المجموع الفرعي: ${fmt(data.subtotal)}</p>
-      ${data.discount ? `<p style="margin:2px 0;">الخصم: -${fmt(data.discount)}</p>` : ""}
-      <p style="margin:2px 0;">الضريبة: ${fmt(data.tax)}</p>
-      <p style="font-weight:bold;font-size:14px;margin:4px 0;">الإجمالي: ${fmt(data.total)}</p>
-      <p style="margin:2px 0;">طريقة الدفع: ${data.paymentMethod}</p>
-      <hr style="border:1px dashed #000;margin:6px 0;"/>
-      ${data.footer ? `<p style="text-align:center;margin:4px 0;">${data.footer}</p>` : ""}
-      <p style="text-align:center;margin:4px 0;">شكراً لزيارتكم 🙏</p>
-      ${qrUrl ? `
-      <hr style="border:1px dashed #000;margin:6px 0;"/>
-      <div style="text-align:center;margin:6px 0;">
-        <img src="${qrUrl}" width="90" height="90" style="display:block;margin:0 auto;" />
-        <p style="font-size:10px;margin:3px 0;color:#555;">${websiteDomain}</p>
-      </div>` : ""}
-    </div>`;
+      <hr style="border:0;border-top:1px dashed #111;margin:6px 0" />
+      <p>المجموع: ${money(data.subtotal)}</p>
+      ${data.discount ? `<p>الخصم: -${money(data.discount)}</p>` : ""}
+      <p>الضريبة: ${money(data.tax)}</p>
+      <p style="font-weight:700;font-size:15px">الإجمالي: ${money(data.total)}</p>
+      <p>طريقة الدفع: ${data.paymentMethod}</p>
+      ${qrUrl ? `<div style="text-align:center;margin-top:8px"><img src="${qrUrl}" width="96" height="96" /></div>` : ""}
+      ${data.footer ? `<p style="text-align:center;margin-top:8px">${data.footer}</p>` : ""}
+    </div>
+  `;
 }
 
 export async function printBrowser(html: string) {
   const win = window.open("", "_blank", "width=420,height=700,scrollbars=yes");
   if (!win) throw new Error("فشل فتح نافذة الطباعة. تأكد من السماح للنوافذ المنبثقة.");
-  win.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8">
-    <style>*{box-sizing:border-box}body{margin:0;padding:8px}@media print{body{margin:0;padding:0}}</style>
-    </head><body>${html}</body></html>`);
+  win.document.write(`<!doctype html><html dir="rtl"><head><meta charset="utf-8"><style>*{box-sizing:border-box}body{margin:0;padding:8px}@media print{body{margin:0;padding:0}}</style></head><body>${html}</body></html>`);
   win.document.close();
   win.focus();
-  setTimeout(() => { try { win.print(); win.close(); } catch {} }, 600);
-}
-
-function escBytes(...bytes: number[]): Uint8Array {
-  return new Uint8Array(bytes);
-}
-
-export function buildEscPos(data: {
-  orgName: string;
-  orderNumber: string | number;
-  items: Array<{ name: string; nameAr: string | null; qty: number; price: number }>;
-  subtotal: number;
-  discount?: number;
-  tax: number;
-  total: number;
-  paymentMethod: string;
-  receiptHeader?: string;
-  footer?: string;
-}, options?: { codePage?: PrinterCodePage; paperWidth?: PaperWidth }): Uint8Array {
-  const codePage = options?.codePage || DEFAULT_PRINTER_CODE_PAGE;
-  const paperWidth = options?.paperWidth || 58;
-  const parts: Uint8Array[] = [];
-  const push = (b: Uint8Array) => parts.push(b);
-  const txt = (s: string) => push(encodeEscPosText(s, codePage));
-  const lf = () => push(new Uint8Array([0x0a]));
-  const fmt = (n: number) => n.toFixed(2);
-  
-  // Determine line width based on paper width
-  const lineWidth = paperWidth === 80 ? 48 : 32;
-  const SEP = "=".repeat(lineWidth);
-  
-  // Initialize printer (reset all settings)
-  push(escBytes(0x1b, 0x40)); // ESC @ - Full initialization
-  
-  // Set character code table to the appropriate code page
-  push(selectEscPosCodePage(codePage));
-  
-  // Set line spacing to 0 (default)
-  push(escBytes(0x1b, 0x32));
-  
-  // Center align
-  push(escBytes(0x1b, 0x61, 0x01));
-  
-  // Header
-  if (data.receiptHeader) { 
-    txt(data.receiptHeader); 
-    lf(); 
-    lf();
-  }
-  
-  // Organization name (bold, large)
-  push(escBytes(0x1b, 0x45, 0x01)); // Bold on
-  push(escBytes(0x1d, 0x21, 0x11)); // Double width and height
-  txt(data.orgName); 
-  lf();
-  push(escBytes(0x1d, 0x21, 0x00)); // Normal size
-  push(escBytes(0x1b, 0x45, 0x00)); // Bold off
-  
-  // Subtitle
-  txt("بسيطة");
-  lf();
-  txt("إدارة المطاعم و الكافيهات");
-  lf();
-  lf();
-  
-  // Order number
-  push(escBytes(0x1b, 0x45, 0x01)); // Bold
-  txt(`رقم الطلب: #${data.orderNumber}`);
-  push(escBytes(0x1b, 0x45, 0x00)); // Bold off
-  lf();
-  
-  // Separator
-  txt(SEP);
-  lf();
-  lf();
-  
-  // Left align for items
-  push(escBytes(0x1b, 0x61, 0x00));
-  
-  // Items header
-  push(escBytes(0x1b, 0x45, 0x01)); // Bold
-  const headerRight = "السعر".padEnd(8);
-  const headerMid = "الكمية".padEnd(8);
-  const headerLeft = "الصنف";
-  const headerLine = `${headerLeft.substring(0, lineWidth - 16)}${headerMid}${headerRight}`;
-  txt(headerLine);
-  lf();
-  push(escBytes(0x1b, 0x45, 0x00)); // Bold off
-  txt(SEP);
-  lf();
-  
-  // Items list
-  for (const item of data.items) {
-    const name = (item.nameAr || item.name).substring(0, lineWidth - 16);
-    const qty = `${item.qty}`.padStart(3);
-    const price = fmt(item.price * item.qty).padStart(6);
-    
-    // Item name line
-    txt(name);
-    lf();
-    
-    // Qty and price line (right aligned)
-    const qtyPriceStr = `${qty}x${price}`;
-    const padding = lineWidth - qtyPriceStr.length;
-    txt(" ".repeat(Math.max(0, padding)) + qtyPriceStr);
-    lf();
-  }
-  
-  // Totals section
-  lf();
-  txt(SEP);
-  lf();
-  
-  // Right align for totals
-  push(escBytes(0x1b, 0x61, 0x02)); // Right align
-  
-  txt(`المجموع الفرعي: ${fmt(data.subtotal)}`);
-  lf();
-  
-  if (data.discount && data.discount > 0) {
-    txt(`الخصم: -${fmt(data.discount)}`);
-    lf();
-  }
-  
-  txt(`الضريبة: ${fmt(data.tax)}`);
-  lf();
-  lf();
-  
-  // Grand total (bold, larger)
-  push(escBytes(0x1b, 0x45, 0x01)); // Bold
-  push(escBytes(0x1d, 0x21, 0x11)); // Double size
-  txt(`الإجمالي: ${fmt(data.total)}`);
-  lf();
-  push(escBytes(0x1d, 0x21, 0x00)); // Normal size
-  push(escBytes(0x1b, 0x45, 0x00)); // Bold off
-  
-  txt(`الدفع: ${data.paymentMethod}`);
-  lf();
-  lf();
-  
-  // Footer
-  push(escBytes(0x1b, 0x61, 0x01)); // Center
-  txt(SEP);
-  lf();
-  if (data.footer) {
-    txt(data.footer);
-    lf();
-  }
-  txt("شكراً لزيارتكم 🙏");
-  lf();
-  
-  // Paper feed and cut
-  lf();
-  lf();
-  lf();
-  push(escBytes(0x1b, 0x64, 0x03)); // Feed 3 lines
-  push(escBytes(0x1d, 0x56, 0x00)); // Full cut (or 0x01 for partial cut)
-  
-  // Combine all parts
-  const total = parts.reduce((sum, p) => sum + p.length, 0);
-  const result = new Uint8Array(total);
-  let offset = 0;
-  for (const p of parts) { 
-    result.set(p, offset); 
-    offset += p.length; 
-  }
-  
-  return result;
-}
-
-// Bluetooth GATT characteristics for thermal printers
-const THERMAL_PRINTER_SERVICES = [
-  "000018f0-0000-1000-8000-00805f9b34fb", // XPrinter service
-  "49535343-fe7d-4ae5-8fa9-9fafd205e455", // Generic BLE UART service
-  "6e400001-b5a3-f393-e0a9-e50e24dcca9e", // Nordic UART service
-  "180a",                                    // Device Information
-];
-
-const THERMAL_PRINTER_WRITE_CHARS = [
-  "00002af1-0000-1000-8000-00805f9b34fb", // XPrinter write
-  "49535343-8841-43f4-a8d4-ecbe34729bb3", // Generic UART TX
-  "6e400002-b5a3-f393-e0a9-e50e24dcca9e", // Nordic UART TX
-];
-
-async function findWriteCharacteristic(server: any): Promise<any> {
-  const characteristics = [];
-  
-  // Try predefined services and characteristics first
-  for (const serviceUuid of THERMAL_PRINTER_SERVICES) {
+  setTimeout(() => {
     try {
-      const service = await server.getPrimaryService(serviceUuid);
-      
-      // Try predefined write characteristics
-      for (const charUuid of THERMAL_PRINTER_WRITE_CHARS) {
-        try {
-          const char = await service.getCharacteristic(charUuid);
-          if (char && (char.properties?.write || char.properties?.writeWithoutResponse)) {
-            return char;
-          }
-        } catch {}
+      win.print();
+      win.close();
+    } catch {}
+  }, 500);
+}
+
+class PrintQueue {
+  private chain = Promise.resolve();
+  private pending = 0;
+
+  get length() {
+    return this.pending;
+  }
+
+  enqueue<T>(task: () => Promise<T>): Promise<T> {
+    this.pending += 1;
+    const run = this.chain.then(task, task).finally(() => {
+      this.pending = Math.max(0, this.pending - 1);
+    });
+    this.chain = run.then(() => undefined, () => undefined);
+    return run;
+  }
+}
+
+export class PrinterManager {
+  private config: PrinterManagerConfig;
+  private queues: Record<PrinterId, PrintQueue>;
+  private bluetoothSessions = new Map<PrinterId, BluetoothSession>();
+  private usbSessions = new Map<PrinterId, UsbSession>();
+  private logs: string[] = [];
+
+  constructor(config?: PrinterManagerConfig) {
+    this.config = config || loadPrinterManagerConfig();
+    this.queues = {
+      cashier_printer: new PrintQueue(),
+      kitchen_printer: new PrintQueue(),
+      hall_printer: new PrintQueue(),
+    };
+  }
+
+  getConfig() {
+    return this.config;
+  }
+
+  updateConfig(config: PrinterManagerConfig) {
+    this.config = config;
+    savePrinterManagerConfig(config);
+  }
+
+  getLogs() {
+    return [...this.logs].slice(-80);
+  }
+
+  private log(message: string) {
+    const line = `${new Date().toLocaleTimeString("ar-EG-u-nu-latn")} - ${message}`;
+    this.logs.push(line);
+    if (this.logs.length > 120) this.logs.shift();
+    console.info(`[PrinterManager] ${message}`);
+  }
+
+  status(printerId: PrinterId): PrinterRuntimeStatus {
+    const cfg = this.config[printerId];
+    const bt = this.bluetoothSessions.get(printerId);
+    const usb = this.usbSessions.get(printerId);
+    return {
+      id: printerId,
+      deviceName: cfg.deviceName,
+      deviceAddress: cfg.deviceAddress || cfg.bluetoothDeviceId || cfg.usbSerialNumber,
+      connectionType: cfg.connectionType,
+      isConnected: cfg.connectionType === "bluetooth" ? !!bt?.server.connected : cfg.connectionType === "usb" ? !!usb?.device.opened : cfg.connectionType === "browser",
+      lastConnected: cfg.lastConnected,
+      queueLength: this.queues[printerId].length,
+      signalStrength: cfg.connectionType === "bluetooth" ? "غير متاح عبر Web Bluetooth" : undefined,
+    };
+  }
+
+  async testConnection(printerId: PrinterId): Promise<PrinterRuntimeStatus> {
+    const cfg = this.config[printerId];
+    if (!cfg.enabled && printerId !== "cashier_printer") throw new Error(`${cfg.label} غير مفعلة`);
+    if (cfg.connectionType === "bluetooth") await this.getBluetoothSession(printerId, true);
+    if (cfg.connectionType === "usb") await this.getUsbSession(printerId, true);
+    return this.status(printerId);
+  }
+
+  async print(job: PrintQueueJob) {
+    return this.queues[job.printerId].enqueue(async () => {
+      const cfg = this.config[job.printerId];
+      if (!cfg.enabled && job.printerId !== "cashier_printer") {
+        this.log(`تم تجاهل ${cfg.label}: غير مفعلة`);
+        return;
       }
-      
-      // If no predefined characteristic found, list all and pick writable one
-      const allChars = await service.getCharacteristics();
-      for (const char of allChars) {
-        if (char.properties?.write || char.properties?.writeWithoutResponse) {
-          characteristics.push(char);
+      const attempts = Math.max(1, cfg.retryAttempts || 3);
+      let lastError: Error | null = null;
+      for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        try {
+          this.log(`${cfg.label}: بدء ${job.description} (محاولة ${attempt})`);
+          await this.write(cfg.id, job.data);
+          this.log(`${cfg.label}: تمت الطباعة`);
+          return;
+        } catch (error) {
+          lastError = error instanceof Error ? error : new Error(String(error));
+          this.log(`${cfg.label}: فشل ${lastError.message}`);
+          this.bluetoothSessions.delete(job.printerId);
+          this.usbSessions.delete(job.printerId);
+          if (attempt < attempts) await delay(250 * attempt);
         }
       }
+      throw lastError || new Error("فشلت الطباعة");
+    });
+  }
+
+  private async write(printerId: PrinterId, data: Uint8Array) {
+    const cfg = this.config[printerId];
+    if (cfg.connectionType === "browser") {
+      throw new Error("طباعة المتصفح تحتاج HTML. استخدم printBrowser للمعاينة فقط.");
+    }
+    if (cfg.connectionType === "bluetooth") {
+      const session = await this.getBluetoothSession(printerId);
+      await writeBluetooth(session.characteristic, data);
+      return;
+    }
+    if (cfg.connectionType === "usb") {
+      const session = await this.getUsbSession(printerId);
+      await writeUsb(session, data);
+      return;
+    }
+    if (cfg.connectionType === "network") {
+      await printNetwork(cfg.networkIp || "", cfg.networkPort || 9100, data);
+      return;
+    }
+  }
+
+  private async getBluetoothSession(printerId: PrinterId, forceRequest = false): Promise<BluetoothSession> {
+    const cfg = this.config[printerId];
+    if (!("bluetooth" in navigator)) throw new Error("Web Bluetooth غير مدعوم. استخدم Chrome أو Edge.");
+    const bt = navigator.bluetooth;
+    const existing = this.bluetoothSessions.get(printerId);
+    if (!forceRequest && existing?.server.connected) return existing;
+
+    let device: BluetoothDevice | undefined;
+    if (!forceRequest && cfg.bluetoothDeviceId && typeof bt.getDevices === "function") {
+      const devices = await bt.getDevices().catch(() => []);
+      device = devices.find((item) => item.id === cfg.bluetoothDeviceId);
+    }
+    if (!device) {
+      device = await bt.requestDevice({
+        acceptAllDevices: !cfg.deviceName,
+        filters: cfg.deviceName ? [{ name: cfg.deviceName }] : undefined,
+        optionalServices: BLUETOOTH_SERVICES,
+      });
+    }
+    if (!device.gatt) throw new Error("الجهاز المحدد لا يدعم GATT.");
+
+    const server = device.gatt.connected ? device.gatt : await device.gatt.connect();
+    const characteristic = await findBluetoothWriteCharacteristic(server);
+    if (!characteristic) throw new Error("لم يتم العثور على قناة كتابة للطابعة.");
+
+    this.config[printerId] = {
+      ...cfg,
+      deviceName: device.name || cfg.deviceName,
+      bluetoothDeviceId: device.id,
+      deviceAddress: device.id,
+      lastConnected: new Date().toISOString(),
+    };
+    savePrinterManagerConfig(this.config);
+
+    const session = { device, server, characteristic };
+    this.bluetoothSessions.set(printerId, session);
+    return session;
+  }
+
+  private async getUsbSession(printerId: PrinterId, forceRequest = false): Promise<UsbSession> {
+    const cfg = this.config[printerId];
+    if (!("usb" in navigator)) throw new Error("WebUSB غير مدعوم. استخدم Chrome أو Edge.");
+    const usb = (navigator as Navigator & { usb: UsbNavigator }).usb;
+    const existing = this.usbSessions.get(printerId);
+    if (!forceRequest && existing?.device.opened) return existing;
+
+    let device: UsbDevice | undefined;
+    if (!forceRequest) {
+      const devices = await usb.getDevices().catch(() => []);
+      device = devices.find((item) =>
+        item.vendorId === cfg.usbVendorId &&
+        item.productId === cfg.usbProductId &&
+        (!cfg.usbSerialNumber || item.serialNumber === cfg.usbSerialNumber)
+      );
+    }
+    if (!device) device = await usb.requestDevice({ filters: USB_THERMAL_PRINTER_FILTERS });
+
+    if (!device.opened) await device.open();
+    if (!device.configuration) await device.selectConfiguration(1);
+    const located = findUsbOutEndpoint(device);
+    if (!located) throw new Error("لم يتم العثور على منفذ USB للطباعة.");
+    await device.claimInterface(located.interfaceNumber);
+
+    this.config[printerId] = {
+      ...cfg,
+      deviceName: device.productName || cfg.deviceName || "USB Printer",
+      deviceAddress: `${device.vendorId}:${device.productId}`,
+      usbVendorId: device.vendorId,
+      usbProductId: device.productId,
+      usbSerialNumber: device.serialNumber,
+      lastConnected: new Date().toISOString(),
+    };
+    savePrinterManagerConfig(this.config);
+
+    const session = { device, endpointNumber: located.endpointNumber, interfaceNumber: located.interfaceNumber };
+    this.usbSessions.set(printerId, session);
+    return session;
+  }
+
+  async printCashierReceipt(data: CashierReceiptData) {
+    const cfg = this.config.cashier_printer;
+    if (cfg.connectionType === "browser") {
+      throw new Error("الطباعة الحرارية المباشرة تحتاج Bluetooth أو USB أو شبكة. اختر طابعة من إعدادات الطباعة.");
+    }
+    return this.print({
+      printerId: "cashier_printer",
+      description: `فاتورة الكاشير #${data.orderNumber}`,
+      data: buildCashierReceipt(data, cfg),
+    });
+  }
+
+  async printKitchenTicket(data: KitchenTicketData) {
+    return this.print({
+      printerId: "kitchen_printer",
+      description: `طلب مطبخ #${data.orderNumber}`,
+      data: buildKitchenTicket(data, this.config.kitchen_printer),
+    });
+  }
+
+  async printHallTicket(data: HallTicketData) {
+    return this.print({
+      printerId: "hall_printer",
+      description: `طلب صالة #${data.orderNumber}`,
+      data: buildHallTicket(data, this.config.hall_printer),
+    });
+  }
+}
+
+async function findBluetoothWriteCharacteristic(server: BluetoothRemoteGATTServer) {
+  for (const serviceUuid of BLUETOOTH_SERVICES) {
+    try {
+      const service = await server.getPrimaryService(serviceUuid);
+      for (const characteristicUuid of BLUETOOTH_WRITE_CHARACTERISTICS) {
+        try {
+          const characteristic = await service.getCharacteristic(characteristicUuid);
+          if (characteristic.properties.write || characteristic.properties.writeWithoutResponse) return characteristic;
+        } catch {}
+      }
+      const characteristics = await service.getCharacteristics();
+      const writable = characteristics.find((item) => item.properties.write || item.properties.writeWithoutResponse);
+      if (writable) return writable;
     } catch {}
   }
-  
-  // Return first writable characteristic found
-  if (characteristics.length > 0) {
-    return characteristics[0];
-  }
-  
   return null;
 }
 
-async function writeToPrinterWithRetry(
-  characteristic: any, 
-  data: Uint8Array, 
-  maxRetries: number = 3,
-  chunkSize: number = 512
-): Promise<void> {
-  let lastError: Error | null = null;
-  
-  for (let retry = 0; retry < maxRetries; retry++) {
-    try {
-      // Write in chunks with small delay between chunks
-      for (let i = 0; i < data.length; i += chunkSize) {
-        const chunk = data.slice(i, Math.min(i + chunkSize, data.length));
-        
-        try {
-          if (characteristic.properties?.writeWithoutResponse) {
-            await characteristic.writeValueWithoutResponse(chunk);
-          } else if (characteristic.properties?.write) {
-            await characteristic.writeValue(chunk);
-          } else {
-            throw new Error("Characteristic does not support write operations");
-          }
-        } catch (chunkError: any) {
-          // Check if error is a disconnect/GATT error
-          if (chunkError?.message?.includes("GATT") || chunkError?.message?.includes("Unknown")) {
-            throw chunkError; // Propagate to retry
-          }
-          // For other errors, continue
-        }
-        
-        // Small delay between chunks to avoid overwhelming the printer
-        await new Promise(resolve => setTimeout(resolve, 10));
-      }
-      
-      return; // Success
-    } catch (error: any) {
-      lastError = error;
-      if (retry < maxRetries - 1) {
-        // Wait before retry (exponential backoff)
-        await new Promise(resolve => setTimeout(resolve, 100 * (retry + 1)));
-      }
+async function writeBluetooth(characteristic: BluetoothRemoteGATTCharacteristic, data: Uint8Array) {
+  const chunkSize = 180;
+  for (let i = 0; i < data.length; i += chunkSize) {
+    const chunk = data.slice(i, i + chunkSize);
+    if (characteristic.properties.writeWithoutResponse) await characteristic.writeValueWithoutResponse(chunk);
+    else await characteristic.writeValue(chunk);
+    await delay(12);
+  }
+}
+
+function findUsbOutEndpoint(device: UsbDevice): { interfaceNumber: number; endpointNumber: number } | null {
+  for (const iface of device.configuration?.interfaces || []) {
+    for (const alternate of iface.alternates) {
+      const endpoint = alternate.endpoints.find((item) => item.direction === "out");
+      if (endpoint) return { interfaceNumber: iface.interfaceNumber, endpointNumber: endpoint.endpointNumber };
     }
   }
-  
-  throw lastError || new Error("Failed to write to printer after retries");
+  return null;
+}
+
+async function writeUsb(session: UsbSession, data: Uint8Array) {
+  const chunkSize = 64;
+  for (let i = 0; i < data.length; i += chunkSize) {
+    await session.device.transferOut(session.endpointNumber, data.slice(i, i + chunkSize));
+    await delay(4);
+  }
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+let singleton: PrinterManager | null = null;
+
+export function getPrinterManager() {
+  if (!singleton) singleton = new PrinterManager();
+  return singleton;
+}
+
+export function resetPrinterManager(config?: PrinterManagerConfig) {
+  singleton = new PrinterManager(config);
+  return singleton;
 }
 
 export async function printBluetooth(
-  data: Uint8Array, 
-  options?: { 
-    deviceId?: string; 
-    deviceName?: string;
-    maxRetries?: number;
-  }
+  data: Uint8Array,
+  options?: { deviceId?: string; deviceName?: string; maxRetries?: number }
 ): Promise<{ name: string; id: string }> {
-  if (!("bluetooth" in navigator)) {
-    throw new Error("Web Bluetooth غير مدعوم. استخدم Chrome أو Edge على جهاز يدعم البلوتوث.");
-  }
-  
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const bt = (navigator as any).bluetooth as BluetoothNavigatorLike;
-  const maxRetries = options?.maxRetries ?? 3;
-  let lastError: Error | null = null;
-
-  // Try to get persisted device first
-  let device: BluetoothDeviceRecord | null = null;
-  if (options?.deviceId) {
-    device = await getPersistedBluetoothDevice(bt, options.deviceId);
-  }
-
-  // If persisted device exists and is connected, try to use it
-  if (device?.gatt?.connected) {
-    try {
-      const server = device.gatt;
-      const char = await findWriteCharacteristic(server);
-      if (char) {
-        await writeToPrinterWithRetry(char, data, maxRetries);
-        return { name: device.name || "Bluetooth Printer", id: device.id };
-      }
-    } catch (error: any) {
-      lastError = error;
-      // Connection failed, will try fresh connection below
-    }
-  }
-
-  // Request new device if persisted one unavailable or failed
-  if (!device) {
-    try {
-      device = await requestBluetoothDevice(bt, options?.deviceName);
-    } catch (error: any) {
-      throw new Error(
-        `فشل البحث عن طابعة بلوتوث. تأكد من تشغيل البلوتوث والطابعة. ${error?.message || ""}`
-      );
-    }
-  }
-
-  // Connect to GATT server
-  if (!device.gatt) {
-    throw new Error("الجهاز المحدد لا يدعم اتصال GATT. قد يكون جهازاً قديماً أو غير متوافق.");
-  }
-
-  let server: any = null;
-  let connectionAttempts = 0;
-  const maxConnectionAttempts = maxRetries;
-
-  while (connectionAttempts < maxConnectionAttempts) {
-    try {
-      server = await device.gatt.connect();
-      break; // Successfully connected
-    } catch (error: any) {
-      connectionAttempts++;
-      if (connectionAttempts >= maxConnectionAttempts) {
-        throw new Error(
-          `فشل الاتصال بالطابعة (محاولات: ${connectionAttempts}). تأكد من قرب الطابعة وتشغيلها. ${error?.message || ""}`
-        );
-      }
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-  }
-
-  // Find write characteristic
-  let char: any = null;
-  try {
-    char = await findWriteCharacteristic(server);
-  } catch (error: any) {
-    throw new Error(
-      `فشل البحث عن خصائص الطابعة. قد تكون الطابعة غير متوافقة. ${error?.message || ""}`
-    );
-  }
-
-  if (!char) {
-    throw new Error(
-      "لم يتم العثور على خدمة الطباعة في الجهاز. تأكد من أن الجهاز طابعة حرارية مدعومة."
-    );
-  }
-
-  // Write data to printer with retry
-  try {
-    await writeToPrinterWithRetry(char, data, maxRetries);
-  } catch (error: any) {
-    throw new Error(
-      `فشلت الطباعة عبر البلوتوث: ${error?.message || "خطأ غير معروف"}`
-    );
-  }
-
-  return { name: device.name || "Bluetooth Printer", id: device.id };
+  const managerConfig = loadPrinterManagerConfig();
+  managerConfig.cashier_printer = {
+    ...managerConfig.cashier_printer,
+    connectionType: "bluetooth",
+    bluetoothDeviceId: options?.deviceId,
+    deviceName: options?.deviceName,
+    retryAttempts: options?.maxRetries || managerConfig.cashier_printer.retryAttempts,
+  };
+  const manager = resetPrinterManager(managerConfig);
+  await manager.print({ printerId: "cashier_printer", data, description: "طباعة Bluetooth" });
+  const cfg = manager.getConfig().cashier_printer;
+  return { name: cfg.deviceName || "Bluetooth Printer", id: cfg.bluetoothDeviceId || "" };
 }
 
-export async function printNetwork(ip: string, port: number, data: Uint8Array, timeout: number = 5000) {
+export async function printUSB(data: Uint8Array): Promise<{ name: string }> {
+  const managerConfig = loadPrinterManagerConfig();
+  managerConfig.cashier_printer = { ...managerConfig.cashier_printer, connectionType: "usb" };
+  const manager = resetPrinterManager(managerConfig);
+  await manager.print({ printerId: "cashier_printer", data, description: "طباعة USB" });
+  return { name: manager.getConfig().cashier_printer.deviceName || "USB Printer" };
+}
+
+export async function printNetwork(ip: string, port: number, data: Uint8Array, timeout = 5000) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
-  
   try {
     const res = await fetch(`http://${ip}:${port}/print`, {
       method: "POST",
@@ -589,150 +979,35 @@ export async function printNetwork(ip: string, port: number, data: Uint8Array, t
       body: data as BodyInit,
       signal: controller.signal,
     });
-    
-    if (!res.ok) {
-      throw new Error(`خطأ HTTP: ${res.status} - ${res.statusText}`);
-    }
-  } catch (error: any) {
-    if (error.name === "AbortError") {
-      throw new Error(`انتهت مهلة الاتصال (${timeout}ms). تأكد من عنوان IP والمنفذ.`);
-    }
-    throw new Error(`خطأ في الطباعة عبر الشبكة: ${error?.message || "فشل الاتصال"}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "فشل الاتصال";
+    throw new Error(`خطأ في الطباعة عبر الشبكة: ${message}`);
   } finally {
     clearTimeout(timeoutId);
   }
 }
 
-// WebUSB Support for XPrinter and other USB thermal printers
-export async function printUSB(data: Uint8Array): Promise<{ name: string }> {
-  if (!("usb" in navigator)) {
-    throw new Error("Web USB API غير مدعومة. استخدم Chrome أو Edge.");
-  }
-  
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const usb = (navigator as any).usb;
-  
-  // Common thermal printer USB IDs (Vendor ID: Product ID)
-  const THERMAL_PRINTERS = [
-    { vendorId: 0x0483, productId: 0x0408 }, // XPrinter
-    { vendorId: 0x1208, productId: 0x0201 }, // Zjiang/Xprinter
-    { vendorId: 0x0493, productId: 0x8000 }, // Datamax/Honeywell
-  ];
-  
-  let device: any = null;
-  
+export async function validatePrinterConnection(config: PrinterConfig): Promise<{ success: boolean; message: string }> {
   try {
-    // Try to request device
-    device = await usb.requestDevice({
-      filters: THERMAL_PRINTERS,
-    });
-  } catch (error: any) {
-    throw new Error(`فشل اختيار جهاز USB: ${error?.message || "تم الإلغاء"}`);
-  }
-  
-  if (!device) {
-    throw new Error("لم يتم اختيار جهاز USB");
-  }
-  
-  try {
-    await device.open();
-    await device.claimInterface(0);
-    
-    // Find OUT endpoint for sending data
-    let outEndpoint = null;
-    const iface = device.configuration.interfaces[0];
-    if (iface) {
-      const alt = iface.alternates[0];
-      if (alt) {
-        outEndpoint = alt.endpoints.find((e: any) => e.direction === "out");
-      }
+    if (config.type === "browser") return { success: true, message: "طباعة المتصفح جاهزة" };
+    if (config.type === "bluetooth") {
+      if (!("bluetooth" in navigator)) return { success: false, message: "Web Bluetooth غير مدعوم" };
+      return { success: true, message: "Bluetooth جاهز. سيتم استخدام الجهاز المحفوظ أو طلب اختيار طابعة." };
     }
-    
-    if (!outEndpoint) {
-      throw new Error("لم يتم العثور على endpoint للطباعة");
+    if (config.type === "usb") {
+      if (!("usb" in navigator)) return { success: false, message: "WebUSB غير مدعوم" };
+      return { success: true, message: "USB جاهز. سيتم استخدام الجهاز المحفوظ أو طلب اختيار طابعة." };
     }
-    
-    // Send data in chunks
-    const chunkSize = 64;
-    for (let i = 0; i < data.length; i += chunkSize) {
-      const chunk = data.slice(i, Math.min(i + chunkSize, data.length));
-      await device.transferOut(outEndpoint.endpointNumber, chunk);
-    }
-    
-    await device.close();
-    return { name: device.productName || "USB Printer" };
-  } catch (error: any) {
-    try {
-      await device.close();
-    } catch {}
-    throw new Error(`خطأ في الطباعة عبر USB: ${error?.message || "فشل الاتصال"}`);
+    return { success: true, message: "إعدادات الشبكة جاهزة" };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : "خطأ غير معروف" };
   }
 }
 
-// Validate printer connection without printing (for testing)
-export async function validatePrinterConnection(config: PrinterConfig): Promise<{ success: boolean; message: string }> {
-  try {
-    if (config.type === "bluetooth") {
-      // Check Bluetooth availability
-      if (!("bluetooth" in navigator)) {
-        return { success: false, message: "Web Bluetooth غير مدعوم على هذا الجهاز" };
-      }
-      
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const bt = (navigator as any).bluetooth;
-      
-      // Check if there are any persisted devices
-      if (typeof bt.getDevices === "function") {
-        const devices = await bt.getDevices();
-        if (devices.length > 0) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const matched = devices.find((d: any) => d.id === config.bluetoothDeviceId || d.name === config.bluetoothName);
-          if (matched?.gatt?.connected) {
-            return { success: true, message: `متصل بـ: ${matched.name}` };
-          }
-        }
-      }
-      
-      return { success: true, message: "جاهز للاتصال - سيتم البحث عند الطباعة" };
-    }
-    
-    if (config.type === "network" && config.networkIp) {
-      // Quick network connectivity check
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
-      
-      try {
-        const res = await fetch(`http://${config.networkIp}:${config.networkPort || 9100}/status`, {
-          method: "GET",
-          signal: controller.signal,
-        }).catch(() => null);
-        
-        clearTimeout(timeoutId);
-        
-        if (res?.ok) {
-          return { success: true, message: "الطابعة جاهزة" };
-        }
-        
-        return { success: true, message: "العنوان قابل للوصول - جاهز للطباعة" };
-      } catch (error: any) {
-        clearTimeout(timeoutId);
-        return { success: false, message: "لا يمكن الوصول إلى عنوان IP الطابعة" };
-      }
-    }
-    
-    if (config.type === "browser") {
-      return { success: true, message: "جاهز للطباعة عبر المتصفح" };
-    }
-    
-    if (config.type === "usb") {
-      if (!("usb" in navigator)) {
-        return { success: false, message: "Web USB غير مدعوم" };
-      }
-      return { success: true, message: "جاهز للطباعة عبر USB" };
-    }
-    
-    return { success: false, message: "نوع اتصال غير معروف" };
-  } catch (error: any) {
-    return { success: false, message: error?.message || "خطأ غير معروف" };
-  }
+export function buildEscPos(
+  data: CashierReceiptData,
+  options?: { codePage?: PrinterCodePage; paperWidth?: PaperWidth }
+): Uint8Array {
+  return buildCashierReceipt(data, { ...DEFAULT_MANAGER_CONFIG.cashier_printer, ...options });
 }

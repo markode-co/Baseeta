@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-unused-vars, react-hooks/set-state-in-effect, @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { Topbar } from "@/components/layout/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +16,9 @@ import {
 import {
   type PrinterConfig, type PrinterType, type PrinterCodePage, type PaperWidth,
   loadPrinterConfig, savePrinterConfig,
+  loadPrinterManagerConfig, savePrinterManagerConfig, resetPrinterManager,
+  type PrinterId, type PrinterManagerConfig, type ConnectionType,
+  buildCashierReceipt, buildKitchenTicket, buildHallTicket,
   loadReceiptSettings, saveReceiptSettings,
   buildReceiptHtml, buildEscPos,
   printBrowser, printBluetooth, printNetwork, printUSB, validatePrinterConnection,
@@ -155,9 +159,8 @@ function PrinterSettings({ orgName }: { orgName: string }) {
       orgWebsite: rs.website || undefined,
     };
     try {
-      if (cfg.type === "browser" || cfg.type === "usb") {
-        await printBrowser(buildReceiptHtml(receiptData));
-        toast.success("تم إرسال الطباعة للمتصفح");
+      if (cfg.type === "browser") {
+        throw new Error("الطباعة الحرارية المباشرة لا تستخدم نافذة المتصفح. اختر Bluetooth أو USB/OTG.");
       } else if (cfg.type === "bluetooth") {
         const result = await printBluetooth(buildEscPos(receiptData, { codePage: cfg.codePage, paperWidth: cfg.paperWidth }), {
           deviceId: cfg.bluetoothDeviceId,
@@ -418,6 +421,182 @@ function PrinterSettings({ orgName }: { orgName: string }) {
 }
 
 // ── Main Component ──────────────────────────────────────────────────────────────
+const PRINTER_IDS: PrinterId[] = ["cashier_printer", "kitchen_printer", "hall_printer"];
+const PRINTER_LABELS: Record<PrinterId, { title: string; desc: string }> = {
+  cashier_printer: { title: "طابعة الكاشير", desc: "فاتورة كاملة مع QR والإجماليات" },
+  kitchen_printer: { title: "طابعة المطبخ", desc: "تفاصيل الطلب فقط بدون أسعار" },
+  hall_printer: { title: "طابعة الصالة", desc: "طلبات الترابيزة بدون إجماليات" },
+};
+
+const DIRECT_CONNECTIONS: Array<{ value: ConnectionType; label: string; icon: React.ElementType }> = [
+  { value: "bluetooth", label: "Bluetooth", icon: Bluetooth },
+  { value: "usb", label: "USB / OTG", icon: Usb },
+  { value: "network", label: "Network", icon: Wifi },
+];
+
+function PrinterDiagnostics({ orgName }: { orgName: string }) {
+  const [config, setConfig] = useState<PrinterManagerConfig>(() => loadPrinterManagerConfig());
+  const [busy, setBusy] = useState<string | null>(null);
+  const [logs, setLogs] = useState<string[]>([]);
+
+  function updatePrinter(id: PrinterId, patch: Partial<PrinterManagerConfig[PrinterId]>) {
+    setConfig((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  }
+
+  function saveAll() {
+    savePrinterManagerConfig(config);
+    resetPrinterManager(config);
+    toast.success("تم حفظ إعدادات الطابعات");
+  }
+
+  async function run(id: PrinterId, type: "connect" | "print" | "qr") {
+    setBusy(`${id}:${type}`);
+    const manager = resetPrinterManager(config);
+    try {
+      if (type === "connect") {
+        await manager.testConnection(id);
+      } else if (id === "cashier_printer") {
+        await manager.print({
+          printerId: id,
+          description: "اختبار كاشير",
+          data: buildCashierReceipt({
+            orgName,
+            orderNumber: "TEST-001",
+            createdAt: new Date(),
+            customerName: "عميل تجريبي",
+            customerPhone: "01000000000",
+            tableInfo: "طاولة 1",
+            items: [
+              { name: "Koshary", nameAr: "كشري", qty: 1, price: 45, notes: "بدون شطة" },
+              { name: "Tea", nameAr: "شاي", qty: 2, price: 15 },
+            ],
+            subtotal: 75,
+            tax: 11.25,
+            total: 86.25,
+            paymentMethod: "نقداً",
+            qrData: "https://baseeta.shop",
+            footer: "شكراً لزيارتكم",
+          }, config.cashier_printer),
+        });
+      } else if (id === "kitchen_printer") {
+        await manager.print({
+          printerId: id,
+          description: "اختبار مطبخ",
+          data: buildKitchenTicket({
+            orderNumber: "K-100",
+            tableInfo: "طاولة 4",
+            orderType: "داخل المطعم",
+            items: [
+              { name: "Burger", nameAr: "برجر", qty: 2, notes: "واحد بدون بصل" },
+              { name: "Fries", nameAr: "بطاطس", qty: 1, notes: "زيادة جبنة" },
+            ],
+          }, config.kitchen_printer),
+        });
+      } else {
+        await manager.print({
+          printerId: id,
+          description: "اختبار صالة",
+          data: buildHallTicket({
+            orderNumber: "H-100",
+            tableInfo: "طاولة 7",
+            items: [
+              { name: "Coffee", nameAr: "قهوة", qty: 2, notes: "سكر قليل" },
+              { name: "Cake", nameAr: "كيك", qty: 1 },
+            ],
+          }, config.hall_printer),
+        });
+      }
+      setLogs(manager.getLogs());
+      toast.success("تم تنفيذ الاختبار");
+    } catch (error) {
+      setLogs(manager.getLogs());
+      toast.error(error instanceof Error ? error.message : "فشل الاختبار");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader><CardTitle className="text-base flex items-center gap-2"><Printer className="w-5 h-5 text-blue-600" /> Printer Diagnostics</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 leading-relaxed">
+            طباعة ESC/POS مباشرة من الهاتف بدون window.print. يدعم Bluetooth BLE و USB/OTG عبر Chrome و Edge، مع CP864 افتراضياً للعربية.
+          </div>
+          {PRINTER_IDS.map((id) => {
+            const printer = config[id];
+            return (
+              <div key={id} className="rounded-xl border border-slate-200 p-4 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-bold text-slate-900">{PRINTER_LABELS[id].title}</h3>
+                    <p className="text-xs text-slate-500">{PRINTER_LABELS[id].desc}</p>
+                    <p className="text-xs text-slate-400" dir="ltr">{id}</p>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-slate-600">
+                    <input type="checkbox" checked={printer.enabled} disabled={id === "cashier_printer"} onChange={(e) => updatePrinter(id, { enabled: e.target.checked })} />
+                    مفعلة
+                  </label>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {DIRECT_CONNECTIONS.map(({ value, label, icon: Icon }) => (
+                    <button key={value} onClick={() => updatePrinter(id, { connectionType: value })} className={`rounded-lg border p-3 text-right ${printer.connectionType === value ? "border-blue-500 bg-blue-50" : "border-slate-200 hover:bg-slate-50"}`}>
+                      <span className="flex items-center gap-2 text-sm font-semibold text-slate-800"><Icon className="w-4 h-4 text-blue-600" /> {label}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <Input label="اسم الطابعة" value={printer.deviceName || ""} onChange={(e) => updatePrinter(id, { deviceName: e.target.value })} placeholder="XP-P323B" />
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Code Page</label>
+                    <Select value={printer.codePage} onValueChange={(value) => updatePrinter(id, { codePage: value as PrinterCodePage })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cp864">CP864 Arabic</SelectItem>
+                        <SelectItem value="windows-1256">Windows-1256</SelectItem>
+                        <SelectItem value="utf8">UTF-8</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Paper Width</label>
+                    <Select value={String(printer.paperWidth)} onValueChange={(value) => updatePrinter(id, { paperWidth: Number(value) as PaperWidth })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="58">58mm</SelectItem>
+                        <SelectItem value="80">80mm</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {printer.connectionType === "network" && (
+                    <>
+                      <Input label="IP" value={printer.networkIp || ""} onChange={(e) => updatePrinter(id, { networkIp: e.target.value })} dir="ltr" />
+                      <Input label="Port" type="number" value={printer.networkPort || 9100} onChange={(e) => updatePrinter(id, { networkPort: Number(e.target.value) })} dir="ltr" />
+                    </>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => run(id, "connect")} loading={busy === `${id}:connect`}><RefreshCw className="w-4 h-4" /> اختبار اتصال</Button>
+                  <Button variant="outline" size="sm" onClick={() => run(id, "print")} loading={busy === `${id}:print`}><FileText className="w-4 h-4" /> اختبار عربي</Button>
+                  {id === "cashier_printer" && <Button variant="outline" size="sm" onClick={() => run(id, "qr")} loading={busy === `${id}:qr`}><QrCode className="w-4 h-4" /> اختبار QR</Button>}
+                </div>
+              </div>
+            );
+          })}
+          <div className="flex justify-end"><Button onClick={saveAll}><Save className="w-4 h-4" /> حفظ إعدادات الطابعات</Button></div>
+        </CardContent>
+      </Card>
+      {logs.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Printer Logs</CardTitle></CardHeader>
+          <CardContent><div className="max-h-48 overflow-y-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-100" dir="ltr">{logs.map((line) => <div key={line}>{line}</div>)}</div></CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 export function SettingsClient({ org, isPlatformAdmin }: { org: Org; isPlatformAdmin?: boolean }) {
   const [form, setForm] = useState({
     name: org.name, email: org.email, phone: org.phone || "",
@@ -649,7 +828,7 @@ export function SettingsClient({ org, isPlatformAdmin }: { org: Org; isPlatformA
           </TabsContent>
 
           <TabsContent value="printer">
-            <PrinterSettings orgName={org.name} />
+            <PrinterDiagnostics orgName={org.name} />
           </TabsContent>
         </Tabs>
       </div>

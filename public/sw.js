@@ -1,4 +1,4 @@
-const CACHE = "baseeta-v3";
+const CACHE = "baseeta-v4";
 
 self.addEventListener("install", () => self.skipWaiting());
 
@@ -46,15 +46,7 @@ self.addEventListener("fetch", (e) => {
     url.pathname.startsWith("/_next/static/development/") ||
     url.pathname.endsWith(".js")
   ) {
-    e.respondWith(
-      fetch(request)
-        .then((res) => {
-          const clone = res.clone();
-          caches.open(CACHE).then((c) => c.put(request, clone));
-          return res;
-        })
-        .catch(() => caches.match(request))
-    );
+    e.respondWith(fetch(request));
     return;
   }
 

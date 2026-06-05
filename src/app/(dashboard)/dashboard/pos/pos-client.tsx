@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { formatCurrency } from "@/lib/utils";
-import { buildReceiptHtml, buildEscPos, printBrowser, printBluetooth, printNetwork, printUSB, loadPrinterConfig, savePrinterConfig } from "@/lib/printer";
+import { getPrinterManager, loadReceiptSettings, type CashierReceiptData, type HallTicketData, type KitchenTicketData } from "@/lib/printer";
 import toast from "react-hot-toast";
 
 type Category  = { id: string; name: string; nameAr: string | null; color: string | null };
@@ -109,11 +109,84 @@ export function POSClient({ categories, menuItems, tables, branch, session, orgN
     setNoteItemId(null); setNoteText("");
   }
 
+  function buildPrintData(orderNumber: string, items: CartItem[]) {
+    const receiptSettings = loadReceiptSettings();
+    const restaurantName = orgName || "بسيطة";
+    const branchInfo = branch?.address ? `${branch.address}${branch.phone ? ` • ${branch.phone}` : ""}` : undefined;
+    const tableInfo = selectedTable ? `طاولة ${tables.find((t) => t.id === selectedTable)?.name || ""}` : undefined;
+    const printItems = items.map((i) => ({
+      name: i.name,
+      nameAr: i.nameAr,
+      qty: i.quantity,
+      price: i.price,
+      notes: i.notes || null,
+    }));
+
+    const cashierReceipt: CashierReceiptData = {
+      orgName: restaurantName,
+      orgAddress: branchInfo,
+      orgWebsite: orgWebsite || receiptSettings.website || undefined,
+      receiptHeader: orgReceiptHeader || receiptSettings.header || undefined,
+      orderNumber,
+      createdAt: new Date(),
+      customerPhone: customerId || undefined,
+      tableInfo,
+      items: printItems,
+      subtotal,
+      discount: discountAmount || undefined,
+      tax,
+      total,
+      paymentMethod: PAYMENT_LABELS[paymentMethod] || paymentMethod,
+      footer: orgReceiptFooter || undefined,
+      qrData: orgWebsite || receiptSettings.website || `ORDER:${orderNumber};TOTAL:${total.toFixed(2)}`,
+    };
+
+    const kitchenTicket: KitchenTicketData = {
+      orderNumber,
+      createdAt: new Date(),
+      tableInfo,
+      orderType: ORDER_TYPES.find((item) => item.value === orderType)?.labelFull,
+      items: printItems,
+    };
+
+    const hallTicket: HallTicketData = {
+      orderNumber,
+      createdAt: new Date(),
+      tableInfo,
+      items: printItems,
+    };
+
+    return { cashierReceipt, kitchenTicket, hallTicket };
+  }
+
+  async function printOrderTickets(orderNumber: string, items: CartItem[]) {
+    const manager = getPrinterManager();
+    const { cashierReceipt, kitchenTicket, hallTicket } = buildPrintData(orderNumber, items);
+    const tasks: Promise<void>[] = [
+      manager.printCashierReceipt(cashierReceipt),
+      manager.printKitchenTicket(kitchenTicket),
+    ];
+    if (orderType === "DINE_IN") tasks.push(manager.printHallTicket(hallTicket));
+
+    const results = await Promise.allSettled(tasks);
+    const failed = results.filter((result) => result.status === "rejected");
+    if (failed.length > 0) {
+      const first = failed[0];
+      const message = first.status === "rejected" && first.reason instanceof Error
+        ? first.reason.message
+        : "فشل إرسال بعض أوامر الطباعة";
+      toast.error(message);
+      return;
+    }
+    toast.success("تم إرسال أوامر الطباعة للطابعات");
+  }
+
   async function submitOrder() {
     if (cart.length === 0) return toast.error("أضف أصناف للطلب");
     if (orderType === "DINE_IN" && !selectedTable) { setShowTablePicker(true); return; }
 
     setIsSubmitting(true);
+    const cartSnapshot = [...cart];
     try {
       const res = await fetch("/api/orders", {
         method: "POST",
@@ -128,6 +201,7 @@ export function POSClient({ categories, menuItems, tables, branch, session, orgN
       const data = await res.json();
       setLastOrder({ number: data.orderNumber });
       toast.success(`تم إنشاء الطلب #${data.orderNumber} بنجاح ✓`);
+      await printOrderTickets(data.orderNumber, cartSnapshot);
       setShowPayment(false);
       clearCart();
       setMobileView("menu");
@@ -141,50 +215,8 @@ export function POSClient({ categories, menuItems, tables, branch, session, orgN
 
   async function handlePrint() {
     try {
-      const cfg = loadPrinterConfig();
-      const restaurantName = orgName || "بسيطة";
-      const branchInfo = branch?.address ? `${branch.address}${branch.phone ? ` • ${branch.phone}` : ""}` : "";
-      
-      const receiptData = {
-        orgName: restaurantName,
-        orgAddress: branchInfo,
-        orgWebsite: orgWebsite || undefined,
-        receiptHeader: orgReceiptHeader || undefined,
-        orderNumber: lastOrder?.number || "—",
-        items: cart.map((i) => ({ name: i.name, nameAr: i.nameAr, qty: i.quantity, price: i.price })),
-        subtotal,
-        discount: discountAmount || undefined,
-        tax,
-        total,
-        paymentMethod: PAYMENT_LABELS[paymentMethod] || paymentMethod,
-        footer: orgReceiptFooter || undefined,
-        tableInfo: selectedTable ? `طاولة ${tables.find((t) => t.id === selectedTable)?.name}` : undefined,
-      };
-      
-      if (cfg.type === "bluetooth") {
-        const data = buildEscPos(receiptData, { codePage: cfg.codePage, paperWidth: cfg.paperWidth });
-        const result = await printBluetooth(data, {
-          deviceId: cfg.bluetoothDeviceId,
-          deviceName: cfg.bluetoothName,
-          maxRetries: cfg.retryAttempts ?? 3,
-        });
-        if (!cfg.bluetoothDeviceId) {
-          savePrinterConfig({ ...cfg, bluetoothDeviceId: result.id, bluetoothName: result.name });
-        }
-        toast.success(`طُبعت الفاتورة على ${result.name}`);
-      } else if (cfg.type === "network") {
-        const data = buildEscPos(receiptData, { codePage: cfg.codePage, paperWidth: cfg.paperWidth });
-        await printNetwork(cfg.networkIp || "", cfg.networkPort || 9100, data);
-        toast.success("طُبعت الفاتورة عبر الشبكة");
-      } else if (cfg.type === "usb") {
-        const data = buildEscPos(receiptData, { codePage: cfg.codePage, paperWidth: cfg.paperWidth });
-        await printUSB(data);
-        toast.success("طُبعت الفاتورة عبر USB");
-      } else {
-        const html = buildReceiptHtml(receiptData);
-        await printBrowser(html);
-        toast.success("تم إرسال الفاتورة للطباعة");
-      }
+      if (cart.length === 0) return;
+      await printOrderTickets(lastOrder?.number || "PREVIEW", cart);
     } catch (e: unknown) {
       toast.error((e as Error).message || "فشلت الطباعة");
     }

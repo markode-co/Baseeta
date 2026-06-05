@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 
 const CURRENT_SW = "/sw.js";
+const CACHE_NAME = "baseeta-v4";
 
 declare global {
   interface Window {
@@ -20,6 +21,8 @@ export function PwaRegister() {
     if (typeof window === "undefined") return;
 
     window.__pwaPrompt = null;
+    const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+    const shouldRegisterServiceWorker = process.env.NODE_ENV === "production" && !isLocalhost;
 
     const installPromptHandler = (event: Event) => {
       event.preventDefault();
@@ -31,7 +34,7 @@ export function PwaRegister() {
     if ("caches" in window) {
       caches.keys().then((keys) => {
         keys.forEach((k) => {
-          if (k !== "baseeta-v3") {
+          if (k !== CACHE_NAME || !shouldRegisterServiceWorker) {
             caches.delete(k).catch(() => {});
           }
         });
@@ -39,6 +42,16 @@ export function PwaRegister() {
     }
 
     if (!("serviceWorker" in navigator)) {
+      return () => {
+        window.removeEventListener("beforeinstallprompt", installPromptHandler);
+      };
+    }
+
+    if (!shouldRegisterServiceWorker) {
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((registration) => registration.unregister().catch(() => {}));
+      }).catch(() => {});
+
       return () => {
         window.removeEventListener("beforeinstallprompt", installPromptHandler);
       };

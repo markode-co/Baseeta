@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import {
   Check, Star, Zap, AlertTriangle, Clock, CheckCircle,
   Phone, Upload, X, Loader2, Copy, Building2,
-  ArrowRight, Shield, RefreshCw,
+  ArrowRight, Shield, RefreshCw, CalendarDays, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,9 +55,28 @@ const BANK = {
 const INSTAPAY_NUMBER = "+201090886364";
 
 interface SubscriptionClientProps {
-  subscription: { status: string; trialEnd: Date | null; currentPeriodEnd: Date | null; plan: { name: string; nameAr: string } | null } | null;
+  subscription: { status: string; trialEnd: Date | null; currentPeriodStart: Date | null; currentPeriodEnd: Date | null; plan: { name: string; nameAr: string } | null } | null;
   orgStats: { branches: number; users: number; menuItems: number };
   pendingRequest: { id: string; status: string; planKey: string; createdAt: Date } | null;
+}
+
+function getActivePeriod(subscription: SubscriptionClientProps["subscription"]) {
+  if (!subscription || subscription.status !== "ACTIVE" || !subscription.currentPeriodEnd) return null;
+
+  const now = new Date();
+  const end = new Date(subscription.currentPeriodEnd);
+  if (end <= now) return null;
+
+  const start = subscription.currentPeriodStart ? new Date(subscription.currentPeriodStart) : now;
+  const totalMs = Math.max(end.getTime() - start.getTime(), 1);
+  const elapsedMs = Math.min(Math.max(now.getTime() - start.getTime(), 0), totalMs);
+  const remainingMs = Math.max(end.getTime() - now.getTime(), 0);
+  const totalDays = Math.max(Math.ceil(totalMs / (1000 * 60 * 60 * 24)), 1);
+  const remainingDays = Math.max(Math.ceil(remainingMs / (1000 * 60 * 60 * 24)), 0);
+  const elapsedDays = Math.min(Math.floor(elapsedMs / (1000 * 60 * 60 * 24)), totalDays);
+  const remainingPercent = Math.max(0, Math.min(100, Math.round((remainingMs / totalMs) * 100)));
+
+  return { start, end, totalDays, remainingDays, elapsedDays, remainingPercent };
 }
 
 export function SubscriptionClient({ subscription, orgStats, pendingRequest }: SubscriptionClientProps) {
@@ -149,12 +168,78 @@ export function SubscriptionClient({ subscription, orgStats, pendingRequest }: S
   const billingLabel = billingPeriod === "yearly" ? "سنة" : "شهر";
   const yearlySavings = selectedPlan && billingPeriod === "yearly" ? PLANS[selectedPlan].yearlySavings : 0;
   const receiptImagePreview = receiptFile?.type.startsWith("image/") ? receiptPreview : null;
+  const activePeriod = getActivePeriod(subscription);
 
   return (
     <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
       <Topbar title="الاشتراك" subtitle="إدارة خطة اشتراكك" />
 
       <div className="p-3 sm:p-4 md:p-6 max-w-4xl mx-auto space-y-5" dir="rtl">
+        {activePeriod && !isExpired && (
+          <section className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-l from-emerald-500 via-blue-500 to-amber-400" />
+            <div className="p-4 sm:p-5">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        اشتراك مفعل
+                      </span>
+                      <span className="text-sm font-semibold text-slate-700">
+                        خطة {subscription?.plan?.nameAr || subscription?.plan?.name || "نشطة"}
+                      </span>
+                    </div>
+                    <h2 className="mt-2 text-xl sm:text-2xl font-black text-slate-950">
+                      متبقي {activePeriod.remainingDays.toLocaleString("ar-EG")} يوم
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      من أصل {activePeriod.totalDays.toLocaleString("ar-EG")} يوم في فترة الاشتراك الحالية
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:min-w-[320px]">
+                  <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-1">
+                      <CalendarDays className="w-3.5 h-3.5" />
+                      بداية الاشتراك
+                    </div>
+                    <p className="text-sm font-bold text-slate-900">{formatDate(activePeriod.start)}</p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-1">
+                      <Clock className="w-3.5 h-3.5" />
+                      ينتهي في
+                    </div>
+                    <p className="text-sm font-bold text-slate-900">{formatDate(activePeriod.end)}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5">
+                <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
+                  <span>المدة المتبقية</span>
+                  <span className="font-semibold text-slate-700">{activePeriod.remainingPercent}%</span>
+                </div>
+                <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-l from-emerald-500 via-blue-500 to-amber-400 transition-all duration-500"
+                    style={{ width: `${activePeriod.remainingPercent}%` }}
+                  />
+                </div>
+                <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
+                  <span>مر {activePeriod.elapsedDays.toLocaleString("ar-EG")} يوم</span>
+                  <span>تجديد الاشتراك: {formatDate(activePeriod.end)}</span>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Expired Banner */}
         {isExpired && (
