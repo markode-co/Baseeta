@@ -38,7 +38,7 @@ type PaymentRequest = {
 
 const PLANS: Record<string, { name: string; price: number }> = {
   BASIC: { name: "أساسي", price: 1000 },
-  PRO: { name: "متكامل", price: 3500 },
+  PRO: { name: "متكامل", price: 2500 },
 };
 
 const SUB_STATUS: Record<string, { label: string; color: string; bg: string }> = {

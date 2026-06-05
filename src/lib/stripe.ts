@@ -29,10 +29,10 @@ export const PLANS = {
   PRO: {
     name: "متكامل",
     nameEn: "Premium",
-    monthlyPrice: 3500,
-    yearlyPrice: 31500,
-    yearlySavings: 10500,
-    price: 3500, // For backward compatibility
+    monthlyPrice: 2500,
+    yearlyPrice: 22500,
+    yearlySavings: 7500,
+    price: 2500, // For backward compatibility
     currency: "EGP",
     stripePriceId: process.env.STRIPE_PRICE_PRO || "",
     maxBranches: 3,

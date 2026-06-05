@@ -10,13 +10,14 @@ import {
   Building2, Globe, Percent, FileText, Save, Printer,
   Bluetooth, Wifi, Usb, Monitor, CheckCircle2, XCircle,
   Loader2, RefreshCw, Link2, QrCode, Info, ShieldCheck, ExternalLink,
+  AlertCircle, Zap,
 } from "lucide-react";
 import {
-  type PrinterConfig, type PrinterType,
+  type PrinterConfig, type PrinterType, type PrinterCodePage, type PaperWidth,
   loadPrinterConfig, savePrinterConfig,
   loadReceiptSettings, saveReceiptSettings,
   buildReceiptHtml, buildEscPos,
-  printBrowser, printBluetooth, printNetwork,
+  printBrowser, printBluetooth, printNetwork, printUSB, validatePrinterConnection,
 } from "@/lib/printer";
 import toast from "react-hot-toast";
 
@@ -40,11 +41,22 @@ const TIMEZONES = [
   { value: "Asia/Kuwait",   label: "الكويت (GMT+3)" },
 ];
 
+const CODE_PAGES: Array<{ value: PrinterCodePage; label: string; desc: string }> = [
+  { value: "cp864", label: "CP864", desc: "ترميز خاص بالنصوص العربية (موصى به)" },
+  { value: "windows-1256", label: "Windows-1256", desc: "ترميز ويندوز العربي" },
+  { value: "utf8", label: "UTF-8", desc: "ترميز عالمي (قد لا يدعمه بعض الطابعات)" },
+];
+
+const PAPER_WIDTHS: Array<{ value: PaperWidth; label: string; desc: string }> = [
+  { value: 58, label: "58 ملم", desc: "الحجم الشائع للطابعات المحمولة" },
+  { value: 80, label: "80 ملم", desc: "الحجم الكبير للطابعات المكتبية" },
+];
+
 const PRINTER_TYPES: { value: PrinterType; label: string; icon: React.ElementType; desc: string }[] = [
   { value: "browser",   label: "طباعة المتصفح",  icon: Monitor,   desc: "يفتح نافذة طباعة المتصفح — يعمل على جميع الأجهزة" },
   { value: "bluetooth", label: "بلوتوث",          icon: Bluetooth, desc: "طابعة حرارية عبر بلوتوث BLE — يتطلب Chrome أو Edge" },
   { value: "network",   label: "شبكة (WiFi/LAN)", icon: Wifi,      desc: "إرسال أوامر ESC/POS مباشرة عبر IP الطابعة" },
-  { value: "usb",       label: "USB",              icon: Usb,       desc: "طباعة عبر Web USB API — تجريبي" },
+  { value: "usb",       label: "USB",              icon: Usb,       desc: "طباعة عبر Web USB API (Chrome فقط)" },
 ];
 
 const TEST_ITEMS = [
@@ -56,14 +68,52 @@ const TEST_ITEMS = [
 function PrinterSettings({ orgName }: { orgName: string }) {
   const [cfg, setCfg]         = useState<PrinterConfig>({ type: "browser" });
   const [testing, setTesting] = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<"idle" | "validating" | "valid" | "invalid">("idle");
+  const [connectionMessage, setConnectionMessage] = useState("");
   const [btStatus, setBtStatus] = useState<"idle" | "connecting" | "ok" | "error">("idle");
   const [btDevice, setBtDevice] = useState<string>("");
 
-  useEffect(() => { setCfg(loadPrinterConfig()); }, []);
+  useEffect(() => {
+    const cfg = loadPrinterConfig();
+    setCfg(cfg);
+    if (cfg.type !== "bluetooth" || !cfg.bluetoothDeviceId || !("bluetooth" in navigator)) return;
+    const bt = (navigator as any).bluetooth;
+    if (typeof bt.getDevices !== "function") return;
+    bt.getDevices().then((devices: any[]) => {
+      const device = devices.find((d) => d.id === cfg.bluetoothDeviceId);
+      if (device) {
+        setBtDevice(cfg.bluetoothName || device.name || "");
+        setBtStatus(device.gatt?.connected ? "ok" : "idle");
+      }
+    }).catch(() => {});
+  }, []);
 
   function save() {
     savePrinterConfig(cfg);
     toast.success("تم حفظ إعدادات الطابعة");
+  }
+
+  async function validateConnection() {
+    setValidating(true);
+    setConnectionStatus("validating");
+    try {
+      const result = await validatePrinterConnection(cfg);
+      setConnectionStatus(result.success ? "valid" : "invalid");
+      setConnectionMessage(result.message);
+      if (!result.success) {
+        toast.error(result.message);
+      } else {
+        toast.success(result.message);
+      }
+    } catch (e: unknown) {
+      setConnectionStatus("invalid");
+      const msg = (e as Error).message || "فشل التحقق";
+      setConnectionMessage(msg);
+      toast.error(msg);
+    } finally {
+      setValidating(false);
+    }
   }
 
   async function connectBluetooth() {
@@ -74,12 +124,18 @@ function PrinterSettings({ orgName }: { orgName: string }) {
         items: TEST_ITEMS,
         subtotal: 85, tax: 12.75, total: 97.75,
         paymentMethod: "نقداً", footer: "اختبار اتصال",
+      }, { codePage: cfg.codePage, paperWidth: cfg.paperWidth });
+      const result = await printBluetooth(escData, {
+        deviceId: cfg.bluetoothDeviceId,
+        deviceName: cfg.bluetoothName,
+        maxRetries: cfg.retryAttempts ?? 3,
       });
-      const name = await printBluetooth(escData);
-      setBtDevice(name);
+      setBtDevice(result.name);
       setBtStatus("ok");
-      setCfg((prev) => ({ ...prev, bluetoothName: name }));
-      toast.success(`تم الاتصال بـ ${name}`);
+      const nextCfg = { ...cfg, bluetoothName: result.name, bluetoothDeviceId: result.id };
+      setCfg(nextCfg);
+      savePrinterConfig(nextCfg);
+      toast.success(`تم الاتصال بـ ${result.name}`);
     } catch (e: unknown) {
       setBtStatus("error");
       toast.error((e as Error).message);
@@ -103,12 +159,21 @@ function PrinterSettings({ orgName }: { orgName: string }) {
         await printBrowser(buildReceiptHtml(receiptData));
         toast.success("تم إرسال الطباعة للمتصفح");
       } else if (cfg.type === "bluetooth") {
-        const name = await printBluetooth(buildEscPos(receiptData));
-        toast.success(`تمت الطباعة عبر البلوتوث ${name ? `(${name})` : ""}`);
+        const result = await printBluetooth(buildEscPos(receiptData, { codePage: cfg.codePage, paperWidth: cfg.paperWidth }), {
+          deviceId: cfg.bluetoothDeviceId,
+          deviceName: cfg.bluetoothName,
+          maxRetries: cfg.retryAttempts ?? 3,
+        });
+        const nextCfg = cfg.bluetoothDeviceId ? cfg : { ...cfg, bluetoothName: result.name, bluetoothDeviceId: result.id };
+        if (!cfg.bluetoothDeviceId) { setCfg(nextCfg); savePrinterConfig(nextCfg); }
+        toast.success(`تمت الطباعة عبر البلوتوث ${result.name ? `(${result.name})` : ""}`);
       } else if (cfg.type === "network") {
         if (!cfg.networkIp) { toast.error("أدخل عنوان IP الطابعة أولاً"); return; }
-        await printNetwork(cfg.networkIp, cfg.networkPort ?? 9100, buildEscPos(receiptData));
+        await printNetwork(cfg.networkIp, cfg.networkPort ?? 9100, buildEscPos(receiptData, { codePage: cfg.codePage, paperWidth: cfg.paperWidth }));
         toast.success("تمت الطباعة عبر الشبكة");
+      } else if (cfg.type === "usb") {
+        await printUSB(buildEscPos(receiptData, { codePage: cfg.codePage, paperWidth: cfg.paperWidth }));
+        toast.success("تمت الطباعة عبر USB");
       }
     } catch (e: unknown) {
       toast.error((e as Error).message || "فشلت الطباعة");
@@ -122,7 +187,7 @@ function PrinterSettings({ orgName }: { orgName: string }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Printer className="w-5 h-5 text-blue-600" />
-          إعدادات الطابعة
+          إعدادات الطابعة الحرارية
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6" dir="rtl">
@@ -134,7 +199,7 @@ function PrinterSettings({ orgName }: { orgName: string }) {
             {PRINTER_TYPES.map(({ value, label, icon: Icon, desc }) => (
               <button
                 key={value}
-                onClick={() => { setCfg((p) => ({ ...p, type: value })); setBtStatus("idle"); }}
+                onClick={() => { setCfg((p) => ({ ...p, type: value })); setBtStatus("idle"); setConnectionStatus("idle"); }}
                 className={`flex items-start gap-3 p-4 rounded-xl border-2 text-right transition-all ${
                   cfg.type === value
                     ? "border-blue-500 bg-blue-50"
@@ -155,47 +220,107 @@ function PrinterSettings({ orgName }: { orgName: string }) {
           </div>
         </div>
 
+        {/* Common settings (codec page and paper width) */}
+        {(cfg.type === "bluetooth" || cfg.type === "network" || cfg.type === "usb") && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm font-medium text-slate-700 mb-2">ترميز النص (Code Page)</p>
+              <Select
+                value={cfg.codePage || "cp864"}
+                onValueChange={(value) => setCfg((p) => ({ ...p, codePage: value as PrinterCodePage }))}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CODE_PAGES.map((page) => (
+                    <SelectItem key={page.value} value={page.value}>
+                      {page.label} - {page.desc}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <p className="text-sm font-medium text-slate-700 mb-2">عرض الورقة</p>
+              <Select
+                value={String(cfg.paperWidth || 58)}
+                onValueChange={(value) => setCfg((p) => ({ ...p, paperWidth: parseInt(value) as PaperWidth }))}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PAPER_WIDTHS.map((width) => (
+                    <SelectItem key={width.value} value={String(width.value)}>
+                      {width.label} - {width.desc}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+
         {/* Bluetooth section */}
         {cfg.type === "bluetooth" && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
-            <p className="text-sm font-medium text-blue-800">إعدادات البلوتوث</p>
-            <div className="flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                btStatus === "ok"         ? "bg-green-100 text-green-600" :
-                btStatus === "error"      ? "bg-red-100 text-red-600" :
-                btStatus === "connecting" ? "bg-blue-100 text-blue-600" :
-                                           "bg-slate-100 text-slate-400"
-              }`}>
-                {btStatus === "connecting" ? <Loader2 className="w-4 h-4 animate-spin" /> :
-                 btStatus === "ok"         ? <CheckCircle2 className="w-4 h-4" /> :
-                 btStatus === "error"      ? <XCircle className="w-4 h-4" /> :
-                                            <Bluetooth className="w-4 h-4" />}
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-blue-800">إعدادات البلوتوث</p>
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  btStatus === "ok"         ? "bg-green-100 text-green-600" :
+                  btStatus === "error"      ? "bg-red-100 text-red-600" :
+                  btStatus === "connecting" ? "bg-blue-100 text-blue-600" :
+                                             "bg-slate-100 text-slate-400"
+                }`}>
+                  {btStatus === "connecting" ? <Loader2 className="w-4 h-4 animate-spin" /> :
+                   btStatus === "ok"         ? <CheckCircle2 className="w-4 h-4" /> :
+                   btStatus === "error"      ? <XCircle className="w-4 h-4" /> :
+                                              <Bluetooth className="w-4 h-4" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-slate-700">
+                    {btStatus === "ok"         ? `متصل بـ: ${btDevice}` :
+                     btStatus === "error"      ? "فشل الاتصال" :
+                     btStatus === "connecting" ? "جارٍ البحث..." :
+                     btDevice                    ? `آخر جهاز: ${btDevice}` :
+                                                "غير متصل"}
+                  </p>
+                  {cfg.bluetoothName && btStatus !== "ok" && (
+                    <p className="text-xs text-slate-500">آخر اتصال: {cfg.bluetoothName}</p>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={connectBluetooth}
+                  disabled={btStatus === "connecting"}
+                  className="flex-shrink-0"
+                >
+                  {btStatus === "connecting"
+                    ? <><Loader2 className="w-3 h-3 animate-spin" /> جارٍ...</>
+                    : <><RefreshCw className="w-3 h-3" /> {btStatus === "ok" ? "إعادة اتصال" : "بحث وطباعة"}</>}
+                </Button>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-slate-700">
-                  {btStatus === "ok"         ? `متصل بـ: ${btDevice}` :
-                   btStatus === "error"      ? "فشل الاتصال" :
-                   btStatus === "connecting" ? "جارٍ البحث..." :
-                                              "غير متصل"}
-                </p>
-                {cfg.bluetoothName && btStatus !== "ok" && (
-                  <p className="text-xs text-slate-500">آخر اتصال: {cfg.bluetoothName}</p>
-                )}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={connectBluetooth}
-                disabled={btStatus === "connecting"}
-                className="flex-shrink-0"
-              >
-                {btStatus === "connecting"
-                  ? <><Loader2 className="w-3 h-3 animate-spin" /> جارٍ...</>
-                  : <><RefreshCw className="w-3 h-3" /> {btStatus === "ok" ? "إعادة اتصال" : "بحث وطباعة"}</>}
-              </Button>
             </div>
+            
+            {/* Retry settings */}
+            <div className="border-t border-blue-200 pt-4">
+              <label className="text-sm font-medium text-blue-800 block mb-2">محاولات إعادة الاتصال</label>
+              <Select
+                value={String(cfg.retryAttempts ?? 3)}
+                onValueChange={(value) => setCfg((p) => ({ ...p, retryAttempts: parseInt(value) }))}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">محاولة واحدة</SelectItem>
+                  <SelectItem value="2">محاولتان</SelectItem>
+                  <SelectItem value="3">3 محاولات (موصى به)</SelectItem>
+                  <SelectItem value="5">5 محاولات</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
             <p className="text-xs text-blue-600 leading-relaxed">
-              💡 تأكد من تشغيل البلوتوث على الجهاز وأن الطابعة قريبة ومشغّلة. يدعم طابعات BLE الحرارية (58mm / 80mm).
+              💡 تأكد من تشغيل البلوتوث على الجهاز وأن الطابعة قريبة ومشغّلة. يدعم طابعات BLE الحرارية (XP-P323B وغيرها).
             </p>
           </div>
         )}
@@ -236,18 +361,50 @@ function PrinterSettings({ orgName }: { orgName: string }) {
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
             <p className="text-sm font-medium text-amber-800 mb-1">طباعة USB</p>
             <p className="text-xs text-amber-700 leading-relaxed">
-              يستخدم Web USB API المتاح في Chrome. سيُطلب منك اختيار الجهاز عند الطباعة. تُعامَل حالياً كطباعة المتصفح.
+              يستخدم Web USB API المتاح في Chrome و Edge. سيُطلب منك اختيار الجهاز عند الطباعة. يدعم معظم طابعات XPrinter وغيرها.
+            </p>
+          </div>
+        )}
+
+        {/* Connection status */}
+        {connectionStatus !== "idle" && (
+          <div className={`rounded-xl p-4 flex items-start gap-3 ${
+            connectionStatus === "validating" ? "bg-blue-50 border border-blue-200" :
+            connectionStatus === "valid" ? "bg-green-50 border border-green-200" :
+            "bg-red-50 border border-red-200"
+          }`}>
+            <div className="flex-shrink-0 mt-0.5">
+              {connectionStatus === "validating" && <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />}
+              {connectionStatus === "valid" && <CheckCircle2 className="w-4 h-4 text-green-600" />}
+              {connectionStatus === "invalid" && <AlertCircle className="w-4 h-4 text-red-600" />}
+            </div>
+            <p className={`text-sm ${
+              connectionStatus === "validating" ? "text-blue-700" :
+              connectionStatus === "valid" ? "text-green-700" :
+              "text-red-700"
+            }`}>
+              {connectionMessage}
             </p>
           </div>
         )}
 
         {/* Actions */}
-        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-200">
-          <Button onClick={save}>
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200">
+          <Button onClick={save} size="sm">
             <Save className="w-4 h-4" /> حفظ الإعدادات
           </Button>
           <Button
             variant="outline"
+            size="sm"
+            onClick={validateConnection}
+            loading={validating}
+            disabled={validating}
+          >
+            <Zap className="w-4 h-4" /> التحقق من الاتصال
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={testPrint}
             loading={testing}
             disabled={testing}

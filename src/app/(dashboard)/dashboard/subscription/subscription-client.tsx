@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef } from "react";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import {
   Check, Star, Zap, AlertTriangle, Clock, CheckCircle,
@@ -33,13 +34,13 @@ const PLANS = {
   },
   PRO: {
     name: "متكامل",
-    monthlyPrice: 3500,
-    yearlyPrice: 31500,
-    yearlySavings: 10500,
+    monthlyPrice: 2500,
+    yearlyPrice: 22500,
+    yearlySavings: 7500,
     color: "purple",
     icon: Star,
     popular: true,
-    features: ["حتى 3 فروع", "20 مستخدم", "500 صنف", "إدارة المخزون", "ذكاء اصطناعي", "تقارير متقدمة", "نظام المطبخ KDS", "دعم أولوي"],
+    features: ["فروع غير محدودة", "مستخدمين غير محدودين", "  اصناف غير محدودة في القائمة", "إدارة المخزون", "ذكاء اصطناعي", "تقارير متقدمة", "نظام المطبخ KDS", "دعم أولوي"],
   },
 };
 
@@ -144,6 +145,7 @@ export function SubscriptionClient({ subscription, orgStats, pendingRequest }: S
   const planName = selectedPlan ? PLANS[selectedPlan].name : "";
   const billingLabel = billingPeriod === "yearly" ? "سنة" : "شهر";
   const yearlySavings = selectedPlan && billingPeriod === "yearly" ? PLANS[selectedPlan].yearlySavings : 0;
+  const receiptImagePreview = receiptFile?.type.startsWith("image/") ? receiptPreview : null;
 
   return (
     <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
@@ -457,15 +459,21 @@ export function SubscriptionClient({ subscription, orgStats, pendingRequest }: S
                   </button>
                 ) : (
                   <div className="relative">
-                    <img
-                      src={receiptPreview || ""}
-                      alt="إيصال الدفع"
-                      className="w-full max-h-48 object-contain rounded-xl border border-slate-200 bg-slate-50"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "";
-                        (e.target as HTMLImageElement).style.display = "none";
-                      }}
-                    />
+                    {receiptImagePreview ? (
+                      <Image
+                        src={receiptImagePreview}
+                        alt="إيصال الدفع"
+                        width={640}
+                        height={320}
+                        unoptimized
+                        className="w-full max-h-48 object-contain rounded-xl border border-slate-200 bg-slate-50"
+                      />
+                    ) : (
+                      <div className="w-full rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
+                        <Upload className="w-7 h-7 text-slate-300 mx-auto mb-2" />
+                        <p className="text-sm font-medium text-slate-600">{receiptFile.type === "application/pdf" ? "ملف PDF جاهز للرفع" : "تم اختيار الملف"}</p>
+                      </div>
+                    )}
                     <div className="mt-2 flex items-center justify-between text-sm">
                       <span className="text-slate-600 truncate">{receiptFile.name}</span>
                       <button onClick={() => { setReceiptFile(null); setReceiptPreview(null); }} className="text-red-500 hover:text-red-700 flex items-center gap-1 text-xs">

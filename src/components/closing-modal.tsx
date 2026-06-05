@@ -1,6 +1,7 @@
 "use client";
 import { useState, useCallback } from "react";
-import { X, Lock, Printer, TrendingUp, ShoppingBag, Tag, Receipt, CreditCard, Loader2, ChevronDown } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { X, Lock, Printer, TrendingUp, ShoppingBag, Tag, Receipt, CreditCard, Loader2 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 type Period = "daily" | "weekly" | "monthly";
@@ -86,6 +87,7 @@ ${payRows}
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export function ClosingButton({ collapsed = false, orgName = "بسيطة" }: { collapsed?: boolean; orgName?: string }) {
+  const router = useRouter();
   const [open,    setOpen]    = useState(false);
   const [period,  setPeriod]  = useState<Period>("daily");
   const [data,    setData]    = useState<ClosingData | null>(null);
@@ -97,14 +99,29 @@ export function ClosingButton({ collapsed = false, orgName = "بسيطة" }: { c
     setError(null);
     try {
       const res = await fetch(`/api/closing?period=${p}`);
-      if (!res.ok) throw new Error("فشل تحميل البيانات");
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { error?: string } | null;
+        const message = body?.error || "فشل تحميل البيانات";
+
+        if (res.status === 401) {
+          router.replace("/login");
+          throw new Error("يرجى تسجيل الدخول مرة أخرى");
+        }
+
+        if (res.status === 403) {
+          router.replace("/dashboard/subscription?expired=1");
+          throw new Error(message);
+        }
+
+        throw new Error(message);
+      }
       setData(await res.json());
     } catch (e: unknown) {
       setError((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   function handleOpen() {
     setOpen(true);

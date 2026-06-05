@@ -28,37 +28,50 @@ const ModalContent = React.forwardRef<
   React.ComponentRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
     size?: "sm" | "md" | "lg" | "xl" | "full";
+    description?: string;
   }
->(({ className, children, size = "md", ...props }, ref) => (
-  <ModalPortal>
-    <ModalOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white shadow-2xl",
-        "data-[state=open]:animate-in data-[state=closed]:animate-out",
-        "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-        "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-        "data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-48%",
-        "data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-48%",
-        "w-[calc(100%-2rem)] sm:w-full flex flex-col max-h-[90dvh]",
-        size === "sm" && "sm:max-w-sm",
-        size === "md" && "sm:max-w-lg",
-        size === "lg" && "sm:max-w-2xl",
-        size === "xl" && "sm:max-w-4xl",
-        size === "full" && "max-w-[95vw] h-[95vh]",
-        className
-      )}
-      {...props}
-    >
-      {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors z-10">
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
-    </DialogPrimitive.Content>
-  </ModalPortal>
-));
+>(({ className, children, description, size = "md", ...props }, ref) => {
+  const descriptionId = React.useId();
+  const hasDescription = typeof description === "string" && description.length > 0;
+  const ariaDescribedBy = props["aria-describedby"] ?? (hasDescription ? descriptionId : undefined);
+
+  return (
+    <ModalPortal>
+      <ModalOverlay />
+      <DialogPrimitive.Content
+        ref={ref}
+        aria-describedby={ariaDescribedBy}
+        className={cn(
+          "fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white shadow-2xl",
+          "data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+          "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+          "data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-48%",
+          "data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-48%",
+          "w-[calc(100%-2rem)] sm:w-full flex flex-col max-h-[90dvh]",
+          size === "sm" && "sm:max-w-sm",
+          size === "md" && "sm:max-w-lg",
+          size === "lg" && "sm:max-w-2xl",
+          size === "xl" && "sm:max-w-4xl",
+          size === "full" && "max-w-[95vw] h-[95vh]",
+          className
+        )}
+        {...props}
+      >
+        {children}
+        {hasDescription ? (
+          <DialogPrimitive.Description id={descriptionId} className="sr-only">
+            {description}
+          </DialogPrimitive.Description>
+        ) : null}
+        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors z-10">
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </DialogPrimitive.Close>
+      </DialogPrimitive.Content>
+    </ModalPortal>
+  );
+});
 ModalContent.displayName = DialogPrimitive.Content.displayName;
 
 const ModalHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (

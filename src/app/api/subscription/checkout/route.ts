@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       : [
           {
             price_data: {
-              currency: "sar",
+              currency: "egp",
               product_data: { name: `بسيطة - خطة ${plan.name}` },
               unit_amount: plan.price * 100,
               recurring: { interval: "month" },

@@ -10,14 +10,14 @@ async function main() {
   const plans = await Promise.all([
     db.plan.upsert({
       where: { stripePriceId: "price_basic_monthly" },
-      update: {},
+      update: { price: 1000, currency: "EGP" },
       create: {
         name: "Basic",
         nameAr: "أساسي",
         description: "Perfect for single restaurants and cafes",
         descriptionAr: "مناسب للمطاعم والكافيهات الفردية",
-        price: 149,
-        currency: "SAR",
+        price: 1000,
+        currency: "EGP",
         interval: "month",
         stripePriceId: "price_basic_monthly",
         maxBranches: 1,
@@ -29,12 +29,12 @@ async function main() {
     }),
     db.plan.upsert({
       where: { stripePriceId: "price_pro_monthly" },
-      update: {},
+      update: { price: 2500, currency: "EGP" },
       create: {
         name: "Pro",
         nameAr: "احترافي",
-        price: 299,
-        currency: "SAR",
+        price: 2500,
+        currency: "EGP",
         interval: "month",
         stripePriceId: "price_pro_monthly",
         maxBranches: 3,
@@ -47,12 +47,12 @@ async function main() {
     }),
     db.plan.upsert({
       where: { stripePriceId: "price_premium_monthly" },
-      update: {},
+      update: { price: 2500, currency: "EGP" },
       create: {
         name: "Premium",
         nameAr: "بريميوم",
-        price: 599,
-        currency: "SAR",
+        price: 2500,
+        currency: "EGP",
         interval: "month",
         stripePriceId: "price_premium_monthly",
         maxBranches: -1,

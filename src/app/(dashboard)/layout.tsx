@@ -4,15 +4,7 @@ import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { SidebarLayout } from "@/components/layout/sidebar-layout";
 import { PLATFORM_ADMIN_EMAIL } from "@/lib/platform-auth";
-
-function isExpired(sub: { status: string; trialEnd: Date | null; currentPeriodEnd: Date | null } | null): boolean {
-  if (!sub) return true;
-  const now = new Date();
-  if (sub.status === "TRIALING") return sub.trialEnd ? sub.trialEnd < now : true;
-  if (sub.status === "ACTIVE") return sub.currentPeriodEnd ? sub.currentPeriodEnd < now : false;
-  if (sub.status === "CANCELED" || sub.status === "PAUSED") return true;
-  return false;
-}
+import { isSubscriptionExpired } from "@/lib/subscription";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
@@ -36,7 +28,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     }),
   ]);
 
-  if (isExpired(subscription) && !onSubscriptionPage) {
+  if (isSubscriptionExpired(subscription) && !onSubscriptionPage) {
     redirect("/dashboard/subscription?expired=1");
   }
 

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { formatCurrency } from "@/lib/utils";
-import { buildReceiptHtml, printBrowser, loadPrinterConfig } from "@/lib/printer";
+import { buildReceiptHtml, buildEscPos, printBrowser, printBluetooth, printNetwork, printUSB, loadPrinterConfig, savePrinterConfig } from "@/lib/printer";
 import toast from "react-hot-toast";
 
 type Category  = { id: string; name: string; nameAr: string | null; color: string | null };
@@ -143,23 +143,47 @@ export function POSClient({ categories, menuItems, tables, branch, session, orgN
     try {
       const cfg = loadPrinterConfig();
       const restaurantName = orgName || "بسيطة";
-      const branchName = branch?.nameAr || branch?.name || "";
       const branchInfo = branch?.address ? `${branch.address}${branch.phone ? ` • ${branch.phone}` : ""}` : "";
       
-      const html = buildReceiptHtml({
+      const receiptData = {
         orgName: restaurantName,
         orgAddress: branchInfo,
         orgWebsite: orgWebsite || undefined,
         receiptHeader: orgReceiptHeader || undefined,
         orderNumber: lastOrder?.number || "—",
         items: cart.map((i) => ({ name: i.name, nameAr: i.nameAr, qty: i.quantity, price: i.price })),
-        subtotal, discount: discountAmount || undefined, tax, total,
+        subtotal,
+        discount: discountAmount || undefined,
+        tax,
+        total,
         paymentMethod: PAYMENT_LABELS[paymentMethod] || paymentMethod,
         footer: orgReceiptFooter || undefined,
         tableInfo: selectedTable ? `طاولة ${tables.find((t) => t.id === selectedTable)?.name}` : undefined,
-      });
-      if (cfg.type === "browser" || cfg.type !== "bluetooth") {
+      };
+      
+      if (cfg.type === "bluetooth") {
+        const data = buildEscPos(receiptData, { codePage: cfg.codePage, paperWidth: cfg.paperWidth });
+        const result = await printBluetooth(data, {
+          deviceId: cfg.bluetoothDeviceId,
+          deviceName: cfg.bluetoothName,
+          maxRetries: cfg.retryAttempts ?? 3,
+        });
+        if (!cfg.bluetoothDeviceId) {
+          savePrinterConfig({ ...cfg, bluetoothDeviceId: result.id, bluetoothName: result.name });
+        }
+        toast.success(`طُبعت الفاتورة على ${result.name}`);
+      } else if (cfg.type === "network") {
+        const data = buildEscPos(receiptData, { codePage: cfg.codePage, paperWidth: cfg.paperWidth });
+        await printNetwork(cfg.networkIp || "", cfg.networkPort || 9100, data);
+        toast.success("طُبعت الفاتورة عبر الشبكة");
+      } else if (cfg.type === "usb") {
+        const data = buildEscPos(receiptData, { codePage: cfg.codePage, paperWidth: cfg.paperWidth });
+        await printUSB(data);
+        toast.success("طُبعت الفاتورة عبر USB");
+      } else {
+        const html = buildReceiptHtml(receiptData);
         await printBrowser(html);
+        toast.success("تم إرسال الفاتورة للطباعة");
       }
     } catch (e: unknown) {
       toast.error((e as Error).message || "فشلت الطباعة");

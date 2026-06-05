@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       data: {
         name: "Standard",
         nameAr: "الباقة الأساسية",
-        price: 299,
+        price: 1000,
         currency: "EGP",
         interval: "month",
         maxBranches: 5,
