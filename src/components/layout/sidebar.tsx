@@ -5,7 +5,7 @@ import {
   LayoutDashboard, ShoppingCart, UtensilsCrossed, ClipboardList,
   Table2, Users, BarChart3, CreditCard, Package, Settings,
   Utensils, ChevronLeft, Bell, LogOut, Store, X,
-  ChevronsLeft, ChevronsRight, ShieldCheck,
+  ChevronsLeft, ChevronsRight, ShieldCheck, Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logout } from "@/app/actions/auth";
@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/tables",       icon: Table2,          label: "الطاولات",       roles: ["SUPER_ADMIN","ADMIN","MANAGER","WAITER"] },
   { href: "/dashboard/menu",         icon: UtensilsCrossed, label: "القائمة",        roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
   { href: "/dashboard/inventory",    icon: Package,         label: "المخزون",        roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+  { href: "/dashboard/expenses",     icon: Receipt,         label: "المصروفات",      roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
   { href: "/dashboard/staff",        icon: Users,           label: "الموظفون",       roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
   { href: "/dashboard/reports",      icon: BarChart3,       label: "التقارير",       roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
   { href: "/dashboard/subscription", icon: CreditCard,      label: "الاشتراك",       roles: ["SUPER_ADMIN","ADMIN"] },

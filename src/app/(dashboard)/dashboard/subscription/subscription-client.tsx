@@ -98,7 +98,7 @@ export function SubscriptionClient({ subscription, orgStats, pendingRequest }: S
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { toast.error("الملف كبير جداً (الحد 10 ميجا)"); return; }
+    if (file.size > 4 * 1024 * 1024) { toast.error("الملف كبير جداً (الحد 4 ميجا)"); return; }
     setReceiptFile(file);
     const reader = new FileReader();
     reader.onload = (ev) => setReceiptPreview(ev.target?.result as string);
@@ -112,7 +112,10 @@ export function SubscriptionClient({ subscription, orgStats, pendingRequest }: S
       const form = new FormData();
       form.append("file", receiptFile);
       const uploadRes = await fetch("/api/upload", { method: "POST", body: form });
-      if (!uploadRes.ok) throw new Error("فشل رفع الإيصال");
+      if (!uploadRes.ok) {
+        const { error } = await uploadRes.json().catch(() => ({ error: null }));
+        throw new Error(error ?? "فشل رفع الإيصال");
+      }
       const { url } = await uploadRes.json();
 
       setIsUploading(false);
@@ -455,7 +458,7 @@ export function SubscriptionClient({ subscription, orgStats, pendingRequest }: S
                   >
                     <Upload className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="text-sm text-slate-500 font-medium">انقر لرفع الإيصال</p>
-                    <p className="text-xs text-slate-400 mt-1">صورة أو PDF - حجم أقصى 10 ميجا</p>
+                    <p className="text-xs text-slate-400 mt-1">صورة أو PDF - حجم أقصى 4 ميجا</p>
                   </button>
                 ) : (
                   <div className="relative">
