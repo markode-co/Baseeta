@@ -9,7 +9,7 @@ export default async function OrdersPage() {
 
   const org = await db.organization.findUnique({
     where: { id: session.organizationId },
-    select: { name: true, website: true, receiptFooter: true, receiptHeader: true },
+    select: { name: true, logo: true, website: true, receiptFooter: true, receiptHeader: true },
   });
 
   const orders = await db.order.findMany({
@@ -30,6 +30,7 @@ export default async function OrdersPage() {
     <OrdersClient
       initialOrders={orders}
       orgName={org?.name || "بسيطة"}
+      orgLogo={org?.logo || undefined}
       orgWebsite={org?.website || undefined}
       orgReceiptFooter={org?.receiptFooter || undefined}
       orgReceiptHeader={org?.receiptHeader || undefined}

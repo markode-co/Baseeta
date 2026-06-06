@@ -2,10 +2,6 @@ import { PrismaClient } from ".prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
-// Log at module load time to verify environment
-console.log("\n=============== DATABASE MODULE LOADING ===============");
-console.log("DATABASE_URL env:", process.env.DATABASE_URL?.replace(/:[^:]+@/, ":***@"));
-
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL;
   
@@ -23,7 +19,8 @@ function createPrismaClient() {
   
   // Extract SSL mode from query parameters
   const sslMode = url.searchParams.get('sslmode');
-  const useLibpqCompat = url.searchParams.has('uselibpqcompat');
+  const connectionLimit = Number(url.searchParams.get("connection_limit") || 1);
+  const poolSize = Number.isFinite(connectionLimit) && connectionLimit > 0 ? connectionLimit : 1;
 
   // Create connection pool with Supabase pooler configuration
   const pool = new Pool({
@@ -36,8 +33,12 @@ function createPrismaClient() {
       rejectUnauthorized: false,
       checkServerIdentity: () => undefined,
     } : false,
-    connectionTimeoutMillis: 20000,
-    idleTimeoutMillis: 60000,
+    max: poolSize,
+    min: 0,
+    keepAlive: true,
+    allowExitOnIdle: true,
+    connectionTimeoutMillis: 10000,
+    idleTimeoutMillis: 30000,
     statement_timeout: 30000,
     query_timeout: 30000,
   });

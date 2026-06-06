@@ -26,7 +26,7 @@ export default async function POSPage() {
       orderBy: { name: "asc" },
     }),
     session.branchId ? db.branch.findUnique({ where: { id: session.branchId } }) : null,
-    db.organization.findUnique({ where: { id: session.organizationId }, select: { name: true, website: true, receiptFooter: true, receiptHeader: true } }),
+    db.organization.findUnique({ where: { id: session.organizationId }, select: { name: true, logo: true, website: true, receiptFooter: true, receiptHeader: true } }),
   ]);
 
   return (
@@ -37,6 +37,7 @@ export default async function POSPage() {
       branch={branch}
       session={session}
       orgName={org?.name || "بسيطة"}
+      orgLogo={org?.logo || undefined}
       orgWebsite={org?.website || undefined}
       orgReceiptFooter={org?.receiptFooter || undefined}
       orgReceiptHeader={org?.receiptHeader || undefined}

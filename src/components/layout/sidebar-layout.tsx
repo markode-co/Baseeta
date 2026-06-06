@@ -8,6 +8,7 @@ const APP_NAME = "بسيطة";
 interface SidebarLayoutProps {
   children: React.ReactNode;
   orgName?: string;
+  orgLogo?: string | null;
   userRole?: string;
   userName?: string;
   notificationCount?: number;
@@ -15,16 +16,18 @@ interface SidebarLayoutProps {
 }
 
 export function SidebarLayout({
-  children, orgName, userRole, userName, notificationCount, isPlatformAdmin,
+  children, orgName, orgLogo, userRole, userName, notificationCount, isPlatformAdmin,
 }: SidebarLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
-    try {
-      const v = localStorage.getItem("sidebar-collapsed");
-      if (v !== null) setCollapsed(v === "true");
-    } catch {}
+    window.queueMicrotask(() => {
+      try {
+        const v = localStorage.getItem("sidebar-collapsed");
+        if (v !== null) setCollapsed(v === "true");
+      } catch {}
+    });
   }, []);
 
   function toggleCollapse() {
@@ -46,6 +49,7 @@ export function SidebarLayout({
 
       <Sidebar
         orgName={orgName}
+        orgLogo={orgLogo}
         userRole={userRole}
         userName={userName}
         notificationCount={notificationCount}
@@ -71,8 +75,12 @@ export function SidebarLayout({
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
-              <Utensils className="w-4 h-4 text-white" />
+            <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center overflow-hidden">
+              {orgLogo ? (
+                <img src={orgLogo} alt={orgName || APP_NAME} className="w-full h-full object-contain bg-white p-0.5" />
+              ) : (
+                <Utensils className="w-4 h-4 text-white" />
+              )}
             </div>
             <span className="font-bold text-slate-900">{APP_NAME}</span>
           </div>

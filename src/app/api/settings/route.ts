@@ -17,6 +17,7 @@ export async function PUT(req: NextRequest) {
       email: body.email,
       phone: body.phone || null,
       address: body.address || null,
+      logo: body.logo || null,
       currency: body.currency,
       timezone: body.timezone,
       taxRate: body.taxRate,

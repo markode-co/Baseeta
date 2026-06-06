@@ -30,6 +30,7 @@ const NAV_ITEMS = [
 
 interface SidebarProps {
   orgName?: string;
+  orgLogo?: string | null;
   userRole?: string;
   userName?: string;
   notificationCount?: number;
@@ -42,6 +43,7 @@ interface SidebarProps {
 
 export function Sidebar({
   orgName = "المطعم أو الكافيه",
+  orgLogo,
   userRole = "ADMIN",
   userName = "المستخدم",
   notificationCount = 0,
@@ -70,8 +72,12 @@ export function Sidebar({
         "flex items-center border-b border-slate-800 min-h-[64px] px-3",
         collapsed ? "md:flex-col md:justify-center md:py-3 md:gap-2 md:px-2" : "gap-3 py-4",
       )}>
-        <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
-          <Utensils className="w-5 h-5 text-white" />
+        <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+          {orgLogo ? (
+            <img src={orgLogo} alt={orgName} className="w-full h-full object-contain bg-white p-1" />
+          ) : (
+            <Utensils className="w-5 h-5 text-white" />
+          )}
         </div>
 
         {/* Title + buttons — hidden when collapsed on desktop */}

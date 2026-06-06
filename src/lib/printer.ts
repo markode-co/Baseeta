@@ -20,6 +20,7 @@ export interface PrinterDefaults {
   direction: 0 | 1;
   printerMode: PrinterMode;
   paperWidth: PaperWidth;
+  fontScale: number;
   retryAttempts: number;
 }
 
@@ -75,6 +76,7 @@ export interface CashierReceiptData {
   orgName: string;
   orgAddress?: string;
   orgWebsite?: string;
+  logoUrl?: string;
   logoText?: string;
   receiptHeader?: string;
   orderNumber: string | number;
@@ -118,6 +120,7 @@ export interface PrinterConfig {
   protocol?: PrinterProtocol;
   codePage?: PrinterCodePage;
   paperWidth?: PaperWidth;
+  fontScale?: number;
   enableRetry?: boolean;
   retryAttempts?: number;
 }
@@ -171,13 +174,15 @@ type UsbSession = {
 const STORAGE_KEY = "printer-manager-config-v1";
 const LEGACY_STORAGE_KEY = "printer-config";
 const RECEIPT_SETTINGS_KEY = "receipt-settings";
+const ARABIC_PRINTER_CODE_PAGE: PrinterCodePage = "cp864";
 
 export const DEFAULT_PRINTER_SETTINGS: PrinterDefaults = {
-  codePage: "cp864",
+  codePage: ARABIC_PRINTER_CODE_PAGE,
   density: 8,
   direction: 0,
   printerMode: "none",
   paperWidth: 58,
+  fontScale: 1,
   retryAttempts: 3,
 };
 
@@ -225,10 +230,13 @@ const BLUETOOTH_WRITE_CHARACTERISTICS = [
 
 const USB_THERMAL_PRINTER_FILTERS = [
   { vendorId: 0x0483 },
+  { vendorId: 0x0403 },
   { vendorId: 0x1208 },
   { vendorId: 0x0493 },
   { vendorId: 0x04b8 },
   { vendorId: 0x0fe6 },
+  { vendorId: 0x067b },
+  { vendorId: 0x1a86 },
 ];
 
 function cloneConfig(config: PrinterManagerConfig): PrinterManagerConfig {
@@ -239,9 +247,9 @@ function mergeConfig(saved: Partial<PrinterManagerConfig> | null): PrinterManage
   const base = cloneConfig(DEFAULT_MANAGER_CONFIG);
   if (!saved) return base;
   return {
-    cashier_printer: { ...base.cashier_printer, ...saved.cashier_printer },
-    kitchen_printer: { ...base.kitchen_printer, ...saved.kitchen_printer },
-    hall_printer: { ...base.hall_printer, ...saved.hall_printer },
+    cashier_printer: { ...base.cashier_printer, ...saved.cashier_printer, codePage: ARABIC_PRINTER_CODE_PAGE },
+    kitchen_printer: { ...base.kitchen_printer, ...saved.kitchen_printer, codePage: ARABIC_PRINTER_CODE_PAGE },
+    hall_printer: { ...base.hall_printer, ...saved.hall_printer, codePage: ARABIC_PRINTER_CODE_PAGE },
   };
 }
 
@@ -265,6 +273,7 @@ export function loadPrinterManagerConfig(): PrinterManagerConfig {
         networkPort: legacy.networkPort,
         codePage: legacy.codePage || "cp864",
         paperWidth: legacy.paperWidth || 58,
+        fontScale: legacy.fontScale || 1,
         retryAttempts: legacy.retryAttempts || 3,
         density: 8,
         direction: 0,
@@ -278,7 +287,7 @@ export function loadPrinterManagerConfig(): PrinterManagerConfig {
 
 export function savePrinterManagerConfig(config: PrinterManagerConfig) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(mergeConfig(config)));
   } catch {}
 }
 
@@ -299,8 +308,9 @@ export function loadPrinterConfig(): PrinterConfig {
     bluetoothDeviceId: cashier.bluetoothDeviceId,
     networkIp: cashier.networkIp,
     networkPort: cashier.networkPort,
-    codePage: cashier.codePage,
+    codePage: ARABIC_PRINTER_CODE_PAGE,
     paperWidth: cashier.paperWidth,
+    fontScale: cashier.fontScale,
     retryAttempts: cashier.retryAttempts,
   };
 }
@@ -314,8 +324,9 @@ export function savePrinterConfig(cfg: PrinterConfig) {
     bluetoothDeviceId: cfg.bluetoothDeviceId,
     networkIp: cfg.networkIp,
     networkPort: cfg.networkPort,
-    codePage: cfg.codePage || "cp864",
+    codePage: ARABIC_PRINTER_CODE_PAGE,
     paperWidth: cfg.paperWidth || 58,
+    fontScale: cfg.fontScale || 1,
     retryAttempts: cfg.retryAttempts || 3,
   };
   savePrinterManagerConfig(managerConfig);
@@ -403,6 +414,10 @@ function lineWidth(paperWidth: PaperWidth): number {
   return paperWidth === 80 ? 48 : 32;
 }
 
+function paperPixels(paperWidth: PaperWidth): number {
+  return paperWidth === 80 ? 576 : 384;
+}
+
 function formatDateTime(value?: Date | string): string {
   const d = value ? new Date(value) : new Date();
   return new Intl.DateTimeFormat("ar-EG-u-nu-latn", {
@@ -423,6 +438,211 @@ function clampText(value: string, max: number): string {
   return chars.length > max ? chars.slice(0, Math.max(0, max - 1)).join("") + "…" : value;
 }
 
+type RasterItem =
+  | { type: "text"; text: string; align?: "left" | "center" | "right"; size?: "small" | "normal" | "large"; bold?: boolean }
+  | { type: "row"; label: string; value: string; size?: "small" | "normal" | "large"; bold?: boolean }
+  | { type: "separator"; char?: string }
+  | { type: "space"; height?: number };
+
+function canRenderRaster() {
+  return typeof document !== "undefined" && typeof document.createElement === "function";
+}
+
+function clampFontScale(value?: number) {
+  return Math.max(0.8, Math.min(1.35, value || 1));
+}
+
+function fontFor(item: { size?: "small" | "normal" | "large"; bold?: boolean }, scale = 1) {
+  const base = item.size === "large" ? 29 : item.size === "small" ? 17 : 21;
+  const px = Math.round(base * clampFontScale(scale));
+  const weight = item.bold ? 700 : 500;
+  return `${weight} ${px}px Arial, Tahoma, sans-serif`;
+}
+
+function lineHeightFor(size?: "small" | "normal" | "large", scale = 1) {
+  const base = size === "large" ? 37 : size === "small" ? 24 : 29;
+  return Math.round(base * clampFontScale(scale));
+}
+
+function wrapCanvasText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
+  const words = String(text || "").split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of words.length ? words : [""]) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (ctx.measureText(candidate).width <= maxWidth) {
+      current = candidate;
+      continue;
+    }
+    if (current) lines.push(current);
+    if (ctx.measureText(word).width <= maxWidth) {
+      current = word;
+      continue;
+    }
+    let chunk = "";
+    for (const char of Array.from(word)) {
+      const next = chunk + char;
+      if (ctx.measureText(next).width > maxWidth && chunk) {
+        lines.push(chunk);
+        chunk = char;
+      } else {
+        chunk = next;
+      }
+    }
+    current = chunk;
+  }
+
+  if (current) lines.push(current);
+  return lines.length ? lines : [""];
+}
+
+function rasterizeItems(items: RasterItem[], paperWidth: PaperWidth, fontScale = 1): Uint8Array {
+  if (!canRenderRaster()) return new Uint8Array();
+
+  const width = paperPixels(paperWidth);
+  const padding = paperWidth === 80 ? 24 : 16;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = 5000;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return new Uint8Array();
+
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#000";
+  ctx.textBaseline = "top";
+  ctx.direction = "rtl";
+
+  let y = 10;
+  const contentWidth = width - padding * 2;
+
+  for (const item of items) {
+    if (item.type === "space") {
+      y += item.height || 8;
+      continue;
+    }
+    if (item.type === "separator") {
+      ctx.direction = "ltr";
+      ctx.textAlign = "center";
+      ctx.font = "500 16px Arial, Tahoma, sans-serif";
+      ctx.fillText((item.char || "-").repeat(paperWidth === 80 ? 54 : 36), width / 2, y);
+      y += 22;
+      continue;
+    }
+    if (item.type === "row") {
+      ctx.font = fontFor(item, fontScale);
+      const lineHeight = lineHeightFor(item.size, fontScale);
+      ctx.direction = "rtl";
+      ctx.textAlign = "right";
+      const labelLines = wrapCanvasText(ctx, item.label, contentWidth * 0.58);
+      ctx.direction = "ltr";
+      ctx.textAlign = "left";
+      const valueLines = wrapCanvasText(ctx, item.value, contentWidth * 0.38);
+      const rows = Math.max(labelLines.length, valueLines.length);
+      for (let i = 0; i < rows; i += 1) {
+        ctx.direction = "rtl";
+        ctx.textAlign = "right";
+        if (labelLines[i]) ctx.fillText(labelLines[i], width - padding, y);
+        ctx.direction = "ltr";
+        ctx.textAlign = "left";
+        if (valueLines[i]) ctx.fillText(valueLines[i], padding, y);
+        y += lineHeight;
+      }
+      continue;
+    }
+
+    ctx.font = fontFor(item, fontScale);
+    ctx.direction = "rtl";
+    ctx.textAlign = item.align === "left" ? "left" : item.align === "center" ? "center" : "right";
+    const x = item.align === "left" ? padding : item.align === "center" ? width / 2 : width - padding;
+    const lines = wrapCanvasText(ctx, item.text, contentWidth);
+    for (const line of lines) {
+      ctx.fillText(line, x, y);
+      y += lineHeightFor(item.size, fontScale);
+    }
+  }
+
+  y += 8;
+  const height = Math.max(1, Math.min(y, canvas.height));
+  const image = ctx.getImageData(0, 0, width, height);
+  const bytesPerRow = Math.ceil(width / 8);
+  const raster = new Uint8Array(bytesPerRow * height);
+
+  for (let row = 0; row < height; row += 1) {
+    for (let col = 0; col < width; col += 1) {
+      const idx = (row * width + col) * 4;
+      const r = image.data[idx];
+      const g = image.data[idx + 1];
+      const b = image.data[idx + 2];
+      const a = image.data[idx + 3];
+      const dark = a > 80 && (r * 0.299 + g * 0.587 + b * 0.114) < 180;
+      if (dark) raster[row * bytesPerRow + (col >> 3)] |= 0x80 >> (col & 7);
+    }
+  }
+
+  return concatBytes([
+    escBytes(0x1d, 0x76, 0x30, 0x00, bytesPerRow & 0xff, (bytesPerRow >> 8) & 0xff, height & 0xff, (height >> 8) & 0xff),
+    raster,
+    escBytes(0x0a),
+  ]);
+}
+
+async function loadImageElement(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Logo image failed to load"));
+    image.src = src;
+  });
+}
+
+async function rasterizeImageUrl(src: string, paperWidth: PaperWidth): Promise<Uint8Array> {
+  if (!canRenderRaster()) return new Uint8Array();
+  try {
+    const image = await loadImageElement(src);
+    const width = paperPixels(paperWidth);
+    const maxLogoWidth = paperWidth === 80 ? 150 : 112;
+    const maxLogoHeight = paperWidth === 80 ? 100 : 78;
+    const scale = Math.min(maxLogoWidth / image.naturalWidth, maxLogoHeight / image.naturalHeight, 1);
+    const drawWidth = Math.max(1, Math.round(image.naturalWidth * scale));
+    const drawHeight = Math.max(1, Math.round(image.naturalHeight * scale));
+    const height = drawHeight + 18;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return new Uint8Array();
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(image, Math.round((width - drawWidth) / 2), 8, drawWidth, drawHeight);
+
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const bytesPerRow = Math.ceil(width / 8);
+    const raster = new Uint8Array(bytesPerRow * height);
+    for (let row = 0; row < height; row += 1) {
+      for (let col = 0; col < width; col += 1) {
+        const idx = (row * width + col) * 4;
+        const r = imageData.data[idx];
+        const g = imageData.data[idx + 1];
+        const b = imageData.data[idx + 2];
+        const a = imageData.data[idx + 3];
+        const dark = a > 80 && (r * 0.299 + g * 0.587 + b * 0.114) < 188;
+        if (dark) raster[row * bytesPerRow + (col >> 3)] |= 0x80 >> (col & 7);
+      }
+    }
+
+    return concatBytes([
+      escBytes(0x1d, 0x76, 0x30, 0x00, bytesPerRow & 0xff, (bytesPerRow >> 8) & 0xff, height & 0xff, (height >> 8) & 0xff),
+      raster,
+      escBytes(0x0a),
+    ]);
+  } catch {
+    return new Uint8Array();
+  }
+}
+
 function qrEscPos(data: string): Uint8Array[] {
   const bytes = new TextEncoder().encode(data);
   const storeLength = bytes.length + 3;
@@ -440,11 +660,15 @@ function qrEscPos(data: string): Uint8Array[] {
 class EscPosBuilder {
   private parts: Uint8Array[] = [];
   private readonly codePage: PrinterCodePage;
+  private readonly paperWidth: PaperWidth;
+  private readonly fontScale: number;
   readonly width: number;
 
-  constructor(settings: Pick<PrinterDeviceConfig, "codePage" | "paperWidth" | "density">) {
-    this.codePage = settings.codePage || "cp864";
-    this.width = lineWidth(settings.paperWidth || 58);
+  constructor(settings: Pick<PrinterDeviceConfig, "codePage" | "paperWidth" | "density" | "fontScale">) {
+    this.codePage = ARABIC_PRINTER_CODE_PAGE;
+    this.paperWidth = settings.paperWidth || 58;
+    this.fontScale = clampFontScale(settings.fontScale);
+    this.width = lineWidth(this.paperWidth);
     this.raw(escBytes(0x1b, 0x40));
     this.raw(codePageCommand(this.codePage));
     this.raw(escBytes(0x1b, 0x32));
@@ -500,6 +724,11 @@ class EscPosBuilder {
     return this;
   }
 
+  raster(items: RasterItem[]) {
+    this.raw(rasterizeItems(items, this.paperWidth, this.fontScale));
+    return this;
+  }
+
   cut() {
     this.line().line().raw(escBytes(0x1b, 0x64, 0x02)).raw(escBytes(0x1d, 0x56, 0x00));
     return this;
@@ -516,7 +745,157 @@ function buildHeader(builder: EscPosBuilder, title: string, subtitle?: string) {
   builder.separator("=");
 }
 
+function buildCashierReceiptRaster(data: CashierReceiptData, config?: Partial<PrinterDeviceConfig>): Uint8Array {
+  const settings = { ...DEFAULT_PRINTER_SETTINGS, ...config };
+  const builder = new EscPosBuilder(settings);
+  const qrData = data.qrData || data.orgWebsite || `ORDER:${data.orderNumber};TOTAL:${money(data.total)}`;
+  const top: RasterItem[] = [];
+
+  if (data.logoText) top.push({ type: "text", text: data.logoText, align: "center", size: "large", bold: true });
+  if (data.receiptHeader) top.push({ type: "text", text: data.receiptHeader, align: "center", size: "normal" });
+  top.push(
+    { type: "text", text: data.orgName, align: "center", size: "large", bold: true },
+    ...(data.orgAddress ? [{ type: "text" as const, text: data.orgAddress, align: "center" as const, size: "small" as const }] : []),
+    { type: "separator", char: "=" },
+    { type: "row", label: "رقم الطلب", value: `#${data.orderNumber}`, bold: true },
+    { type: "row", label: "التاريخ", value: formatDateTime(data.createdAt), size: "small" }
+  );
+  if (data.tableInfo) top.push({ type: "row", label: "المكان", value: data.tableInfo });
+  if (data.customerName) top.push({ type: "row", label: "العميل", value: data.customerName });
+  if (data.customerPhone) top.push({ type: "row", label: "الهاتف", value: data.customerPhone });
+  top.push({ type: "separator" }, { type: "row", label: "الصنف", value: "الإجمالي", bold: true });
+
+  for (const item of data.items) {
+    top.push(
+      { type: "text", text: item.nameAr || item.name, align: "right", bold: true },
+      { type: "row", label: `${item.qty} x ${money(item.price || 0)}`, value: money((item.price || 0) * item.qty), size: "small" }
+    );
+    if (item.notes) top.push({ type: "text", text: `ملاحظة: ${item.notes}`, align: "right", size: "small" });
+  }
+
+  top.push(
+    { type: "separator" },
+    { type: "row", label: "المجموع", value: money(data.subtotal) }
+  );
+  if (data.discount && data.discount > 0) top.push({ type: "row", label: "الخصم", value: `-${money(data.discount)}` });
+  top.push(
+    { type: "row", label: "الضريبة", value: money(data.tax) },
+    { type: "row", label: "الإجمالي", value: money(data.total), size: "large", bold: true },
+    { type: "row", label: "الدفع", value: data.paymentMethod },
+    { type: "separator" }
+  );
+
+  builder.raster(top);
+  if (qrData) builder.qr(qrData);
+  builder.raster([
+    ...(data.footer ? [{ type: "text" as const, text: data.footer, align: "center" as const }] : []),
+    { type: "text", text: "شكراً لزيارتكم", align: "center", bold: true },
+  ]);
+  builder.cut();
+  return builder.bytes();
+}
+
+async function buildCashierReceiptRasterWithAssets(data: CashierReceiptData, config?: Partial<PrinterDeviceConfig>): Promise<Uint8Array> {
+  const settings = { ...DEFAULT_PRINTER_SETTINGS, ...config };
+  const builder = new EscPosBuilder(settings);
+  const qrData = data.qrData || data.orgWebsite || `ORDER:${data.orderNumber};TOTAL:${money(data.total)}`;
+  const top: RasterItem[] = [];
+
+  if (data.receiptHeader) top.push({ type: "text", text: data.receiptHeader, align: "center", size: "normal" });
+  if (data.logoText && !data.logoUrl) top.push({ type: "text", text: data.logoText, align: "center", size: "large", bold: true });
+  builder.raster(top);
+  if (data.logoUrl) builder.raw(await rasterizeImageUrl(data.logoUrl, settings.paperWidth));
+
+  builder.raster([
+    { type: "text", text: data.orgName, align: "center", size: "large", bold: true },
+    ...(data.orgAddress ? [{ type: "text" as const, text: data.orgAddress, align: "center" as const, size: "small" as const }] : []),
+    { type: "separator", char: "=" },
+    { type: "row", label: "رقم الطلب", value: `#${data.orderNumber}`, bold: true },
+    { type: "row", label: "التاريخ", value: formatDateTime(data.createdAt), size: "small" },
+    ...(data.tableInfo ? [{ type: "row" as const, label: "المكان", value: data.tableInfo }] : []),
+    ...(data.customerName ? [{ type: "row" as const, label: "العميل", value: data.customerName }] : []),
+    ...(data.customerPhone ? [{ type: "row" as const, label: "الهاتف", value: data.customerPhone }] : []),
+    { type: "separator" },
+    { type: "row", label: "الصنف", value: "الإجمالي", bold: true },
+  ]);
+
+  const lines: RasterItem[] = [];
+  for (const item of data.items) {
+    lines.push(
+      { type: "text", text: item.nameAr || item.name, align: "right", bold: true },
+      { type: "row", label: `${item.qty} x ${money(item.price || 0)}`, value: money((item.price || 0) * item.qty), size: "small" }
+    );
+    if (item.notes) lines.push({ type: "text", text: `ملاحظة: ${item.notes}`, align: "right", size: "small" });
+  }
+  lines.push(
+    { type: "separator" },
+    { type: "row", label: "المجموع", value: money(data.subtotal) }
+  );
+  if (data.discount && data.discount > 0) lines.push({ type: "row", label: "الخصم", value: `-${money(data.discount)}` });
+  lines.push(
+    { type: "row", label: "الضريبة", value: money(data.tax) },
+    { type: "row", label: "الإجمالي", value: money(data.total), size: "large", bold: true },
+    { type: "row", label: "الدفع", value: data.paymentMethod },
+    { type: "separator" }
+  );
+  builder.raster(lines);
+  if (qrData) builder.qr(qrData);
+  builder.raster([
+    ...(data.footer ? [{ type: "text" as const, text: data.footer, align: "center" as const }] : []),
+    { type: "text", text: "شكراً لزيارتكم", align: "center", bold: true },
+    { type: "space", height: 4 },
+    { type: "text", text: "markode.co", align: "center", size: "small", bold: true },
+  ]);
+  builder.cut();
+  return builder.bytes();
+}
+
+function buildKitchenTicketRaster(data: KitchenTicketData, config?: Partial<PrinterDeviceConfig>): Uint8Array {
+  const builder = new EscPosBuilder({ ...DEFAULT_PRINTER_SETTINGS, ...config });
+  const items: RasterItem[] = [
+    { type: "text", text: "طلب المطبخ", align: "center", size: "large", bold: true },
+    { type: "text", text: `#${data.orderNumber}`, align: "center", bold: true },
+    { type: "separator", char: "=" },
+    { type: "row", label: "التاريخ", value: formatDateTime(data.createdAt), size: "small" },
+  ];
+  if (data.tableInfo) items.push({ type: "row", label: "المكان", value: data.tableInfo, bold: true });
+  if (data.orderType) items.push({ type: "row", label: "النوع", value: data.orderType });
+  items.push({ type: "separator" });
+
+  for (const item of data.items) {
+    items.push({ type: "text", text: `${item.qty} x ${item.nameAr || item.name}`, align: "right", size: "large", bold: true });
+    if (item.modifiers?.length) {
+      item.modifiers.forEach((modifier) => items.push({ type: "text", text: `+ ${modifier.qty || 1} ${modifier.nameAr || modifier.name}`, align: "right" }));
+    }
+    if (item.notes) items.push({ type: "text", text: `ملاحظة: ${item.notes}`, align: "right", bold: true });
+    items.push({ type: "separator" });
+  }
+  if (data.notes) items.push({ type: "text", text: `ملاحظات الطلب: ${data.notes}`, align: "right", bold: true });
+  builder.raster(items).cut();
+  return builder.bytes();
+}
+
+function buildHallTicketRaster(data: HallTicketData, config?: Partial<PrinterDeviceConfig>): Uint8Array {
+  const builder = new EscPosBuilder({ ...DEFAULT_PRINTER_SETTINGS, ...config });
+  const items: RasterItem[] = [
+    { type: "text", text: "طلب الصالة", align: "center", size: "large", bold: true },
+    { type: "text", text: data.tableInfo || `#${data.orderNumber}`, align: "center", size: "large", bold: true },
+    { type: "separator", char: "=" },
+    { type: "row", label: "رقم الطلب", value: `#${data.orderNumber}`, bold: true },
+    { type: "row", label: "التاريخ", value: formatDateTime(data.createdAt), size: "small" },
+    { type: "separator" },
+  ];
+  for (const item of data.items) {
+    items.push({ type: "text", text: `${item.qty} x ${item.nameAr || item.name}`, align: "right", size: "large", bold: true });
+    if (item.notes) items.push({ type: "text", text: `ملاحظة: ${item.notes}`, align: "right", bold: true });
+  }
+  if (data.notes) items.push({ type: "separator" }, { type: "text", text: `ملاحظات: ${data.notes}`, align: "right", bold: true });
+  builder.raster(items).cut();
+  return builder.bytes();
+}
+
 export function buildCashierReceipt(data: CashierReceiptData, config?: Partial<PrinterDeviceConfig>): Uint8Array {
+  if (canRenderRaster()) return buildCashierReceiptRaster(data, config);
   const builder = new EscPosBuilder({ ...DEFAULT_PRINTER_SETTINGS, ...config });
   const qrData = data.qrData || data.orgWebsite || `ORDER:${data.orderNumber};TOTAL:${money(data.total)}`;
 
@@ -557,11 +936,12 @@ export function buildCashierReceipt(data: CashierReceiptData, config?: Partial<P
 
   if (qrData) builder.qr(qrData);
   if (data.footer) builder.align("center").line(data.footer);
-  builder.align("center").line("شكراً لزيارتكم").cut();
+  builder.align("center").line("شكراً لزيارتكم").line("markode.co").cut();
   return builder.bytes();
 }
 
 export function buildKitchenTicket(data: KitchenTicketData, config?: Partial<PrinterDeviceConfig>): Uint8Array {
+  if (canRenderRaster()) return buildKitchenTicketRaster(data, config);
   const builder = new EscPosBuilder({ ...DEFAULT_PRINTER_SETTINGS, ...config });
   buildHeader(builder, "طلب المطبخ", `#${data.orderNumber}`);
   builder
@@ -585,6 +965,7 @@ export function buildKitchenTicket(data: KitchenTicketData, config?: Partial<Pri
 }
 
 export function buildHallTicket(data: HallTicketData, config?: Partial<PrinterDeviceConfig>): Uint8Array {
+  if (canRenderRaster()) return buildHallTicketRaster(data, config);
   const builder = new EscPosBuilder({ ...DEFAULT_PRINTER_SETTINGS, ...config });
   buildHeader(builder, "طلب الصالة", data.tableInfo || `#${data.orderNumber}`);
   builder.align("right").row("رقم الطلب", `#${data.orderNumber}`).row("التاريخ", formatDateTime(data.createdAt)).separator();
@@ -610,6 +991,7 @@ export function buildReceiptHtml(data: CashierReceiptData): string {
   return `
     <div style="direction:rtl;width:76mm;margin:0 auto;font-family:Arial,'Tahoma',sans-serif;font-size:12px;color:#111">
       ${data.receiptHeader ? `<p style="text-align:center;margin:2px 0">${data.receiptHeader}</p>` : ""}
+      ${data.logoUrl ? `<div style="text-align:center;margin:4px 0"><img src="${data.logoUrl}" style="max-width:26mm;max-height:18mm;object-fit:contain" /></div>` : ""}
       <h2 style="text-align:center;margin:4px 0;font-size:18px">${data.orgName}</h2>
       ${data.orgAddress ? `<p style="text-align:center;margin:2px 0">${data.orgAddress}</p>` : ""}
       <hr style="border:0;border-top:1px dashed #111;margin:6px 0" />
@@ -629,6 +1011,7 @@ export function buildReceiptHtml(data: CashierReceiptData): string {
       <p>طريقة الدفع: ${data.paymentMethod}</p>
       ${qrUrl ? `<div style="text-align:center;margin-top:8px"><img src="${qrUrl}" width="96" height="96" /></div>` : ""}
       ${data.footer ? `<p style="text-align:center;margin-top:8px">${data.footer}</p>` : ""}
+      <p style="text-align:center;margin-top:4px;font-size:10px;font-weight:700;letter-spacing:.4px">markode.co</p>
     </div>
   `;
 }
@@ -720,8 +1103,21 @@ export class PrinterManager {
   async testConnection(printerId: PrinterId): Promise<PrinterRuntimeStatus> {
     const cfg = this.config[printerId];
     if (!cfg.enabled && printerId !== "cashier_printer") throw new Error(`${cfg.label} غير مفعلة`);
-    if (cfg.connectionType === "bluetooth") await this.getBluetoothSession(printerId, true);
-    if (cfg.connectionType === "usb") await this.getUsbSession(printerId, true);
+    this.log(`${cfg.label}: اختبار اتصال ${cfg.connectionType}`);
+    if (cfg.connectionType === "bluetooth") {
+      const session = await this.getBluetoothSession(printerId, true);
+      await writeBluetooth(session.characteristic, escBytes(0x1b, 0x40));
+      this.log(`${cfg.label}: Bluetooth write path OK`);
+    }
+    if (cfg.connectionType === "usb") {
+      const session = await this.getUsbSession(printerId, true);
+      await writeUsb(session, escBytes(0x1b, 0x40));
+      this.log(`${cfg.label}: USB OUT endpoint ${session.endpointNumber} OK`);
+    }
+    if (cfg.connectionType === "network") {
+      await testNetworkConnection(cfg.networkIp || "", cfg.networkPort || 9100);
+      this.log(`${cfg.label}: Network /print path OK`);
+    }
     return this.status(printerId);
   }
 
@@ -860,7 +1256,7 @@ export class PrinterManager {
     return this.print({
       printerId: "cashier_printer",
       description: `فاتورة الكاشير #${data.orderNumber}`,
-      data: buildCashierReceipt(data, cfg),
+      data: canRenderRaster() ? await buildCashierReceiptRasterWithAssets(data, cfg) : buildCashierReceipt(data, cfg),
     });
   }
 
@@ -970,6 +1366,7 @@ export async function printUSB(data: Uint8Array): Promise<{ name: string }> {
 }
 
 export async function printNetwork(ip: string, port: number, data: Uint8Array, timeout = 5000) {
+  if (!ip.trim()) throw new Error("أدخل IP الطابعة أو عنوان خدمة الطباعة الشبكية أولاً");
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
   try {
@@ -986,6 +1383,10 @@ export async function printNetwork(ip: string, port: number, data: Uint8Array, t
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+async function testNetworkConnection(ip: string, port: number) {
+  await printNetwork(ip, port, escBytes(0x1b, 0x40), 3000);
 }
 
 export async function validatePrinterConnection(config: PrinterConfig): Promise<{ success: boolean; message: string }> {
@@ -1007,7 +1408,7 @@ export async function validatePrinterConnection(config: PrinterConfig): Promise<
 
 export function buildEscPos(
   data: CashierReceiptData,
-  options?: { codePage?: PrinterCodePage; paperWidth?: PaperWidth }
+  options?: { codePage?: PrinterCodePage; paperWidth?: PaperWidth; fontScale?: number }
 ): Uint8Array {
   return buildCashierReceipt(data, { ...DEFAULT_MANAGER_CONFIG.cashier_printer, ...options });
 }

@@ -11,10 +11,10 @@ import {
   Building2, Globe, Percent, FileText, Save, Printer,
   Bluetooth, Wifi, Usb, Monitor, CheckCircle2, XCircle,
   Loader2, RefreshCw, Link2, QrCode, Info, ShieldCheck, ExternalLink,
-  AlertCircle, Zap,
+  AlertCircle, Zap, Upload, Trash2,
 } from "lucide-react";
 import {
-  type PrinterConfig, type PrinterType, type PrinterCodePage, type PaperWidth,
+  type PrinterConfig, type PrinterType, type PaperWidth,
   loadPrinterConfig, savePrinterConfig,
   loadPrinterManagerConfig, savePrinterManagerConfig, resetPrinterManager,
   type PrinterId, type PrinterManagerConfig, type ConnectionType,
@@ -27,6 +27,7 @@ import toast from "react-hot-toast";
 
 type Org = {
   id: string; name: string; slug: string; email: string; phone: string | null;
+  logo: string | null;
   address: string | null; currency: string; timezone: string; locale: string;
   taxRate: number; receiptFooter: string | null; receiptHeader: string | null; website: string | null;
 };
@@ -45,15 +46,16 @@ const TIMEZONES = [
   { value: "Asia/Kuwait",   label: "الكويت (GMT+3)" },
 ];
 
-const CODE_PAGES: Array<{ value: PrinterCodePage; label: string; desc: string }> = [
-  { value: "cp864", label: "CP864", desc: "ترميز خاص بالنصوص العربية (موصى به)" },
-  { value: "windows-1256", label: "Windows-1256", desc: "ترميز ويندوز العربي" },
-  { value: "utf8", label: "UTF-8", desc: "ترميز عالمي (قد لا يدعمه بعض الطابعات)" },
-];
-
 const PAPER_WIDTHS: Array<{ value: PaperWidth; label: string; desc: string }> = [
   { value: 58, label: "58 ملم", desc: "الحجم الشائع للطابعات المحمولة" },
   { value: 80, label: "80 ملم", desc: "الحجم الكبير للطابعات المكتبية" },
+];
+
+const FONT_SCALES = [
+  { value: "0.9", label: "صغير" },
+  { value: "1", label: "عادي" },
+  { value: "1.15", label: "كبير" },
+  { value: "1.3", label: "كبير جداً" },
 ];
 
 const PRINTER_TYPES: { value: PrinterType; label: string; icon: React.ElementType; desc: string }[] = [
@@ -128,7 +130,7 @@ function PrinterSettings({ orgName }: { orgName: string }) {
         items: TEST_ITEMS,
         subtotal: 85, tax: 12.75, total: 97.75,
         paymentMethod: "نقداً", footer: "اختبار اتصال",
-      }, { codePage: cfg.codePage, paperWidth: cfg.paperWidth });
+      }, { paperWidth: cfg.paperWidth, fontScale: cfg.fontScale });
       const result = await printBluetooth(escData, {
         deviceId: cfg.bluetoothDeviceId,
         deviceName: cfg.bluetoothName,
@@ -162,7 +164,7 @@ function PrinterSettings({ orgName }: { orgName: string }) {
       if (cfg.type === "browser") {
         throw new Error("الطباعة الحرارية المباشرة لا تستخدم نافذة المتصفح. اختر Bluetooth أو USB/OTG.");
       } else if (cfg.type === "bluetooth") {
-        const result = await printBluetooth(buildEscPos(receiptData, { codePage: cfg.codePage, paperWidth: cfg.paperWidth }), {
+        const result = await printBluetooth(buildEscPos(receiptData, { paperWidth: cfg.paperWidth, fontScale: cfg.fontScale }), {
           deviceId: cfg.bluetoothDeviceId,
           deviceName: cfg.bluetoothName,
           maxRetries: cfg.retryAttempts ?? 3,
@@ -172,10 +174,10 @@ function PrinterSettings({ orgName }: { orgName: string }) {
         toast.success(`تمت الطباعة عبر البلوتوث ${result.name ? `(${result.name})` : ""}`);
       } else if (cfg.type === "network") {
         if (!cfg.networkIp) { toast.error("أدخل عنوان IP الطابعة أولاً"); return; }
-        await printNetwork(cfg.networkIp, cfg.networkPort ?? 9100, buildEscPos(receiptData, { codePage: cfg.codePage, paperWidth: cfg.paperWidth }));
+        await printNetwork(cfg.networkIp, cfg.networkPort ?? 9100, buildEscPos(receiptData, { paperWidth: cfg.paperWidth, fontScale: cfg.fontScale }));
         toast.success("تمت الطباعة عبر الشبكة");
       } else if (cfg.type === "usb") {
-        await printUSB(buildEscPos(receiptData, { codePage: cfg.codePage, paperWidth: cfg.paperWidth }));
+        await printUSB(buildEscPos(receiptData, { paperWidth: cfg.paperWidth, fontScale: cfg.fontScale }));
         toast.success("تمت الطباعة عبر USB");
       }
     } catch (e: unknown) {
@@ -223,26 +225,9 @@ function PrinterSettings({ orgName }: { orgName: string }) {
           </div>
         </div>
 
-        {/* Common settings (codec page and paper width) */}
+        {/* Common settings */}
         {(cfg.type === "bluetooth" || cfg.type === "network" || cfg.type === "usb") && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm font-medium text-slate-700 mb-2">ترميز النص (Code Page)</p>
-              <Select
-                value={cfg.codePage || "cp864"}
-                onValueChange={(value) => setCfg((p) => ({ ...p, codePage: value as PrinterCodePage }))}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {CODE_PAGES.map((page) => (
-                    <SelectItem key={page.value} value={page.value}>
-                      {page.label} - {page.desc}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
             <div>
               <p className="text-sm font-medium text-slate-700 mb-2">عرض الورقة</p>
               <Select
@@ -283,7 +268,7 @@ function PrinterSettings({ orgName }: { orgName: string }) {
                   <p className="text-sm text-slate-700">
                     {btStatus === "ok"         ? `متصل بـ: ${btDevice}` :
                      btStatus === "error"      ? "فشل الاتصال" :
-                     btStatus === "connecting" ? "جارٍ البحث..." :
+                     btStatus === "connecting" ? "جاري البحث..." :
                      btDevice                    ? `آخر جهاز: ${btDevice}` :
                                                 "غير متصل"}
                   </p>
@@ -299,7 +284,7 @@ function PrinterSettings({ orgName }: { orgName: string }) {
                   className="flex-shrink-0"
                 >
                   {btStatus === "connecting"
-                    ? <><Loader2 className="w-3 h-3 animate-spin" /> جارٍ...</>
+                    ? <><Loader2 className="w-3 h-3 animate-spin" /> جاري...</>
                     : <><RefreshCw className="w-3 h-3" /> {btStatus === "ok" ? "إعادة اتصال" : "بحث وطباعة"}</>}
                 </Button>
               </div>
@@ -364,7 +349,7 @@ function PrinterSettings({ orgName }: { orgName: string }) {
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
             <p className="text-sm font-medium text-amber-800 mb-1">طباعة USB</p>
             <p className="text-xs text-amber-700 leading-relaxed">
-              يستخدم Web USB API المتاح في Chrome و Edge. سيُطلب منك اختيار الجهاز عند الطباعة. يدعم معظم طابعات XPrinter وغيرها.
+              يستخدم Web USB API المتاح في Chrome و Edge. سيطلب منك اختيار الجهاز عند الطباعة. يدعم معظم طابعات XPrinter وغيرها.
             </p>
           </div>
         )}
@@ -431,10 +416,10 @@ const PRINTER_LABELS: Record<PrinterId, { title: string; desc: string }> = {
 const DIRECT_CONNECTIONS: Array<{ value: ConnectionType; label: string; icon: React.ElementType }> = [
   { value: "bluetooth", label: "Bluetooth", icon: Bluetooth },
   { value: "usb", label: "USB / OTG", icon: Usb },
-  { value: "network", label: "Network", icon: Wifi },
+  { value: "network", label: "Network Bridge", icon: Wifi },
 ];
 
-function PrinterDiagnostics({ orgName }: { orgName: string }) {
+function PrinterDiagnostics({ orgName, orgLogo }: { orgName: string; orgLogo?: string | null }) {
   const [config, setConfig] = useState<PrinterManagerConfig>(() => loadPrinterManagerConfig());
   const [busy, setBusy] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
@@ -456,11 +441,9 @@ function PrinterDiagnostics({ orgName }: { orgName: string }) {
       if (type === "connect") {
         await manager.testConnection(id);
       } else if (id === "cashier_printer") {
-        await manager.print({
-          printerId: id,
-          description: "اختبار كاشير",
-          data: buildCashierReceipt({
+        await manager.printCashierReceipt({
             orgName,
+            logoUrl: orgLogo || undefined,
             orderNumber: "TEST-001",
             createdAt: new Date(),
             customerName: "عميل تجريبي",
@@ -476,7 +459,7 @@ function PrinterDiagnostics({ orgName }: { orgName: string }) {
             paymentMethod: "نقداً",
             qrData: "https://baseeta.shop",
             footer: "شكراً لزيارتكم",
-          }, config.cashier_printer),
+          
         });
       } else if (id === "kitchen_printer") {
         await manager.print({
@@ -522,7 +505,7 @@ function PrinterDiagnostics({ orgName }: { orgName: string }) {
         <CardHeader><CardTitle className="text-base flex items-center gap-2"><Printer className="w-5 h-5 text-blue-600" /> Printer Diagnostics</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 leading-relaxed">
-            طباعة ESC/POS مباشرة من الهاتف بدون window.print. يدعم Bluetooth BLE و USB/OTG عبر Chrome و Edge، مع CP864 افتراضياً للعربية.
+            طباعة ESC/POS مباشرة من الهاتف بدون window.print. يدعم Bluetooth BLE و USB/OTG عبر Chrome و Edge، مع تجهيز العربية تلقائياً داخل خدمة الطباعة.
           </div>
           {PRINTER_IDS.map((id) => {
             const printer = config[id];
@@ -549,17 +532,6 @@ function PrinterDiagnostics({ orgName }: { orgName: string }) {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <Input label="اسم الطابعة" value={printer.deviceName || ""} onChange={(e) => updatePrinter(id, { deviceName: e.target.value })} placeholder="XP-P323B" />
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Code Page</label>
-                    <Select value={printer.codePage} onValueChange={(value) => updatePrinter(id, { codePage: value as PrinterCodePage })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cp864">CP864 Arabic</SelectItem>
-                        <SelectItem value="windows-1256">Windows-1256</SelectItem>
-                        <SelectItem value="utf8">UTF-8</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Paper Width</label>
                     <Select value={String(printer.paperWidth)} onValueChange={(value) => updatePrinter(id, { paperWidth: Number(value) as PaperWidth })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
@@ -569,10 +541,24 @@ function PrinterDiagnostics({ orgName }: { orgName: string }) {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">مقاس الكلام</label>
+                    <Select value={String(printer.fontScale || 1)} onValueChange={(value) => updatePrinter(id, { fontScale: Number(value) })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {FONT_SCALES.map((scale) => (
+                          <SelectItem key={scale.value} value={scale.value}>{scale.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   {printer.connectionType === "network" && (
                     <>
                       <Input label="IP" value={printer.networkIp || ""} onChange={(e) => updatePrinter(id, { networkIp: e.target.value })} dir="ltr" />
                       <Input label="Port" type="number" value={printer.networkPort || 9100} onChange={(e) => updatePrinter(id, { networkPort: Number(e.target.value) })} dir="ltr" />
+                      <p className="sm:col-span-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800 leading-relaxed">
+                        اتصال Network يستخدم مسار HTTP: http://IP:PORT/print لإرسال أوامر ESC/POS. الطباعة الشبكية الخام على منفذ 9100 لا يمكن للمتصفح الاتصال بها مباشرة بدون Bridge.
+                      </p>
                     </>
                   )}
                 </div>
@@ -600,12 +586,14 @@ function PrinterDiagnostics({ orgName }: { orgName: string }) {
 export function SettingsClient({ org, isPlatformAdmin }: { org: Org; isPlatformAdmin?: boolean }) {
   const [form, setForm] = useState({
     name: org.name, email: org.email, phone: org.phone || "",
+    logo: org.logo || "",
     address: org.address || "", currency: org.currency, timezone: org.timezone,
     taxRate: String(org.taxRate * 100), receiptFooter: org.receiptFooter || "",
     receiptHeader: org.receiptHeader || "",
     website: org.website || "",
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [receiptLocal, setReceiptLocal] = useState({ address: "", website: "", header: "" });
   const [receiptSaved, setReceiptSaved] = useState(false);
 
@@ -636,6 +624,27 @@ export function SettingsClient({ org, isPlatformAdmin }: { org: Org; isPlatformA
       toast.error("فشل الحفظ");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function uploadLogo(file: File) {
+    if (!file.type.startsWith("image/")) {
+      toast.error("اختر صورة للوجو فقط");
+      return;
+    }
+    setIsUploadingLogo(true);
+    try {
+      const data = new FormData();
+      data.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: data });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "فشل رفع اللوجو");
+      setForm((prev) => ({ ...prev, logo: json.url }));
+      toast.success("تم رفع اللوجو");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "فشل رفع اللوجو");
+    } finally {
+      setIsUploadingLogo(false);
     }
   }
 
@@ -679,6 +688,43 @@ export function SettingsClient({ org, isPlatformAdmin }: { org: Org; isPlatformA
             <Card>
               <CardHeader><CardTitle>معلومات المطعم</CardTitle></CardHeader>
               <CardContent className="space-y-4">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <div className="w-20 h-20 rounded-2xl bg-white border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                      {form.logo ? (
+                        <img src={form.logo} alt="Logo" className="w-full h-full object-contain p-2" />
+                      ) : (
+                        <Building2 className="w-8 h-8 text-slate-300" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-900">لوجو المطعم</p>
+                      <p className="text-xs text-slate-500 mt-1">يظهر في الشريط الجانبي وأعلى فاتورة الكاشير بين الرسالة الترحيبية واسم المطعم.</p>
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium cursor-pointer hover:bg-blue-700 transition-colors">
+                          {isUploadingLogo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                          رفع لوجو
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            className="hidden"
+                            disabled={isUploadingLogo}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              e.currentTarget.value = "";
+                              if (file) uploadLogo(file);
+                            }}
+                          />
+                        </label>
+                        {form.logo && (
+                          <Button variant="outline" size="sm" onClick={() => setForm({ ...form, logo: "" })}>
+                            <Trash2 className="w-4 h-4" /> حذف
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input label="اسم المطعم"         value={form.name}    onChange={(e) => setForm({ ...form, name: e.target.value })}    required />
                   <Input label="البريد الإلكتروني"  value={form.email}   onChange={(e) => setForm({ ...form, email: e.target.value })}   type="email" />
@@ -734,7 +780,7 @@ export function SettingsClient({ org, isPlatformAdmin }: { org: Org; isPlatformA
                 <CardContent className="space-y-3">
                   <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
                     <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                    <span>اسم المطعم والعنوان يُؤخذان من تبويب «عام» ويظهران تلقائياً على الفاتورة.</span>
+                    <span>اسم المطعم والعنوان يؤخذان من تبويب «عام» ويظهران تلقائياً على الفاتورة.</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="bg-slate-50 rounded-lg px-3 py-2.5">
@@ -828,7 +874,7 @@ export function SettingsClient({ org, isPlatformAdmin }: { org: Org; isPlatformA
           </TabsContent>
 
           <TabsContent value="printer">
-            <PrinterDiagnostics orgName={org.name} />
+            <PrinterDiagnostics orgName={org.name} orgLogo={form.logo || undefined} />
           </TabsContent>
         </Tabs>
       </div>

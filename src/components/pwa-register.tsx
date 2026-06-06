@@ -2,7 +2,7 @@
 import { useEffect } from "react";
 
 const CURRENT_SW = "/sw.js";
-const CACHE_NAME = "baseeta-v4";
+const CACHE_NAME = "baseeta-v5";
 
 declare global {
   interface Window {

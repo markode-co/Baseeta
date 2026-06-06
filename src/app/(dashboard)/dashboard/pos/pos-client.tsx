@@ -35,13 +35,14 @@ const PAYMENT_METHODS = [
 
 const PAYMENT_LABELS: Record<string, string> = { CASH: "نقداً", CARD: "بطاقة", INSTAPAY: "إنستاباي" };
 
-export function POSClient({ categories, menuItems, tables, branch, session, orgName = "بسيطة", orgWebsite, orgReceiptFooter, orgReceiptHeader }: {
+export function POSClient({ categories, menuItems, tables, branch, session, orgName = "بسيطة", orgLogo, orgWebsite, orgReceiptFooter, orgReceiptHeader }: {
   categories: Category[];
   menuItems:  MenuItem[];
   tables:     Table[];
   branch:     Branch;
   session:    Session;
   orgName?:   string;
+  orgLogo?: string;
   orgWebsite?: string;
   orgReceiptFooter?: string;
   orgReceiptHeader?: string;
@@ -126,6 +127,7 @@ export function POSClient({ categories, menuItems, tables, branch, session, orgN
       orgName: restaurantName,
       orgAddress: branchInfo,
       orgWebsite: orgWebsite || receiptSettings.website || undefined,
+      logoUrl: orgLogo,
       receiptHeader: orgReceiptHeader || receiptSettings.header || undefined,
       orderNumber,
       createdAt: new Date(),
@@ -159,14 +161,15 @@ export function POSClient({ categories, menuItems, tables, branch, session, orgN
     return { cashierReceipt, kitchenTicket, hallTicket };
   }
 
-  async function printOrderTickets(orderNumber: string, items: CartItem[]) {
+  async function printOrderTickets(orderNumber: string, items: CartItem[], target: "all" | "invoice" | "production" = "all") {
     const manager = getPrinterManager();
     const { cashierReceipt, kitchenTicket, hallTicket } = buildPrintData(orderNumber, items);
-    const tasks: Promise<void>[] = [
-      manager.printCashierReceipt(cashierReceipt),
-      manager.printKitchenTicket(kitchenTicket),
-    ];
-    if (orderType === "DINE_IN") tasks.push(manager.printHallTicket(hallTicket));
+    const tasks: Promise<void>[] = [];
+    if (target === "all" || target === "invoice") tasks.push(manager.printCashierReceipt(cashierReceipt));
+    if (target === "all" || target === "production") {
+      tasks.push(manager.printKitchenTicket(kitchenTicket));
+      if (orderType === "DINE_IN") tasks.push(manager.printHallTicket(hallTicket));
+    }
 
     const results = await Promise.allSettled(tasks);
     const failed = results.filter((result) => result.status === "rejected");
@@ -178,7 +181,7 @@ export function POSClient({ categories, menuItems, tables, branch, session, orgN
       toast.error(message);
       return;
     }
-    toast.success("تم إرسال أوامر الطباعة للطابعات");
+    toast.success(target === "invoice" ? "تم إرسال الفاتورة لطابعة الكاشير" : target === "production" ? "تم إرسال الوردر للطابعات المناسبة" : "تم إرسال أوامر الطباعة للطابعات");
   }
 
   async function submitOrder() {
@@ -216,7 +219,7 @@ export function POSClient({ categories, menuItems, tables, branch, session, orgN
   async function handlePrint() {
     try {
       if (cart.length === 0) return;
-      await printOrderTickets(lastOrder?.number || "PREVIEW", cart);
+      await printOrderTickets(lastOrder?.number || "PREVIEW", cart, "production");
     } catch (e: unknown) {
       toast.error((e as Error).message || "فشلت الطباعة");
     }
@@ -387,7 +390,7 @@ export function POSClient({ categories, menuItems, tables, branch, session, orgN
                     <p className="text-sm font-medium text-slate-800 truncate">{item.nameAr || item.name}</p>
                     <p className="text-xs text-slate-400 mt-0.5">{formatCurrency(item.price)} × {item.quantity}</p>
                     {item.notes && (
-                      <p className="text-xs text-amber-600 mt-0.5 bg-amber-50 px-1.5 py-0.5 rounded">📝 {item.notes}</p>
+                      <p className="text-xs text-amber-600 mt-0.5 bg-amber-50 px-1.5 py-0.5 rounded">↳ {item.notes}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">

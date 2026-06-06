@@ -12,7 +12,7 @@ import {
   ShoppingCart, Eye, Printer, Filter
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { loadReceiptSettings } from "@/lib/printer";
+import { getPrinterManager, loadReceiptSettings, type CashierReceiptData } from "@/lib/printer";
 
 type OrderItem = { id: string; name: string; nameAr: string | null; quantity: number; price: number; total: number; notes: string | null; };
 type Table = { id: string; name: string; } | null;
@@ -34,9 +34,9 @@ const STATUS_FLOW: Record<string, string> = {
 const STATUS_CONFIG = {
   PENDING: { label: "معلق", color: "pending", icon: Clock },
   CONFIRMED: { label: "مؤكد", color: "preparing", icon: ChevronRight },
-  PREPARING: { label: "يُحضَّر", color: "preparing", icon: ChefHat },
+  PREPARING: { label: "يحضّر", color: "preparing", icon: ChefHat },
   READY: { label: "جاهز", color: "ready", icon: CheckCircle2 },
-  SERVED: { label: "قُدِّم", color: "ready", icon: CheckCircle2 },
+  SERVED: { label: "قُدّم", color: "ready", icon: CheckCircle2 },
   COMPLETED: { label: "مكتمل", color: "completed", icon: CheckCircle2 },
   CANCELLED: { label: "ملغي", color: "cancelled", icon: XCircle },
 };
@@ -58,7 +58,7 @@ const TAB_LABELS: Record<string, string> = {
   ALL: "الكل", PENDING: "معلقة", PREPARING: "قيد التحضير", READY: "جاهزة", COMPLETED: "مكتملة", CANCELLED: "ملغاة"
 };
 
-export function OrdersClient({ initialOrders, orgName = "بسيطة", orgWebsite, orgReceiptFooter, orgReceiptHeader }: { initialOrders: Order[]; orgName?: string; orgWebsite?: string; orgReceiptFooter?: string; orgReceiptHeader?: string }) {
+export function OrdersClient({ initialOrders, orgName = "بسيطة", orgLogo, orgWebsite, orgReceiptFooter, orgReceiptHeader }: { initialOrders: Order[]; orgName?: string; orgLogo?: string; orgWebsite?: string; orgReceiptFooter?: string; orgReceiptHeader?: string }) {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [activeTab, setActiveTab] = useState<string>("ALL");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -90,7 +90,52 @@ export function OrdersClient({ initialOrders, orgName = "بسيطة", orgWebsite
     }
   }
 
-  function printInvoice(order: Order) {
+  async function printInvoice(order: Order) {
+    if (typeof globalThis !== "undefined") {
+      const { address, website: localWebsite, header } = receiptSettings;
+      const receiptHeader = orgReceiptHeader || header;
+      const receiptFooter = orgReceiptFooter || undefined;
+      const restaurantName = orgName || "بسيطة";
+      const branchName = order.branch?.nameAr || order.branch?.name || "";
+      const branchAddress = order.branch?.address || address;
+      const branchPhone = order.branch?.phone;
+      const branchInfo = branchPhone ? `${branchAddress}${branchAddress ? " - " : ""}${branchPhone}` : branchAddress;
+      const website = orgWebsite || localWebsite;
+      const receipt: CashierReceiptData = {
+        orgName: restaurantName,
+        orgAddress: branchName ? `${branchName}${branchInfo ? ` - ${branchInfo}` : ""}` : branchInfo || undefined,
+        orgWebsite: website || undefined,
+        logoUrl: orgLogo,
+        receiptHeader: receiptHeader || undefined,
+        orderNumber: order.orderNumber,
+        createdAt: order.createdAt,
+        customerPhone: order.customerId || undefined,
+        tableInfo: order.table ? `طاولة ${order.table.name}` : TYPE_LABEL[order.type] || order.type,
+        items: order.items.map((item) => ({
+          name: item.name,
+          nameAr: item.nameAr,
+          qty: item.quantity,
+          price: item.price,
+          notes: item.notes,
+        })),
+        subtotal: order.subtotal,
+        discount: order.discount || undefined,
+        tax: order.tax,
+        total: order.total,
+        paymentMethod: order.paymentMethod ? PAYMENT_LABEL[order.paymentMethod] || order.paymentMethod : "",
+        footer: receiptFooter,
+        qrData: website || `ORDER:${order.orderNumber};TOTAL:${order.total.toFixed(2)}`,
+      };
+
+      try {
+        await getPrinterManager().printCashierReceipt(receipt);
+        toast.success("تم إرسال الفاتورة لطابعة الكاشير");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "فشلت طباعة الفاتورة");
+      }
+      return;
+    }
+
     const { address, website: localWebsite, header } = receiptSettings;
     const receiptHeader = orgReceiptHeader || header;
     const receiptFooter = orgReceiptFooter || undefined;
@@ -167,11 +212,11 @@ export function OrdersClient({ initialOrders, orgName = "بسيطة", orgWebsite
 </html>`;
 
     const win = window.open("", "_blank", "width=420,height=650");
-    if (!win) { toast.error("يرجى السماح بفتح النوافذ المنبثقة"); return; }
+    if (!win) { toast.error("فشل تحديث الحالة"); return; }
     win.document.write(html);
     win.document.close();
     win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 400);
+    setTimeout(() => { win.close(); }, 400);
   }
 
   function getTabCount(tab: string) {
@@ -317,7 +362,7 @@ export function OrdersClient({ initialOrders, orgName = "بسيطة", orgWebsite
                     <div key={item.id} className="py-2.5 flex justify-between">
                       <div>
                         <p className="text-sm font-medium text-slate-800">{item.nameAr || item.name}</p>
-                        {item.notes && <p className="text-xs text-amber-600 mt-0.5">📝 {item.notes}</p>}
+                        {item.notes && <p className="text-xs text-amber-600 mt-0.5">↳ {item.notes}</p>}
                         <p className="text-xs text-slate-400">{formatCurrency(item.price)} × {item.quantity}</p>
                       </div>
                       <span className="text-sm font-semibold text-slate-800">{formatCurrency(item.total)}</span>

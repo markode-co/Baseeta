@@ -17,7 +17,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const [org, pendingOrders, subscription] = await Promise.all([
     db.organization.findUnique({
       where: { id: session.organizationId },
-      select: { name: true },
+      select: { name: true, logo: true },
     }),
     db.order.count({
       where: { organizationId: session.organizationId, status: "PENDING" },
@@ -35,6 +35,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <SidebarLayout
       orgName={org?.name}
+      orgLogo={org?.logo}
       userRole={session.role}
       userName={session.name}
       notificationCount={pendingOrders}
