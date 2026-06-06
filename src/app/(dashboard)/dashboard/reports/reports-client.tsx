@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { Topbar } from "@/components/layout/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
@@ -9,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts";
 
 const ORDER_TYPE_LABELS: Record<string, string> = {
@@ -113,8 +114,10 @@ export function ReportsClient({ data, orgName }: { data: ReportsData; orgName: s
         subtitle="تحليل الأداء ومتابعة المبيعات"
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => window.print()}>
-              <Printer className="w-4 h-4" /> طباعة
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/dashboard/reports/print" target="_blank" rel="noopener noreferrer">
+                <Printer className="w-4 h-4" /> طباعة
+              </Link>
             </Button>
             <Button variant="outline" size="sm" onClick={exportCSV}>
               <Download className="w-4 h-4" /> تصدير CSV
