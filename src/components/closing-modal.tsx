@@ -3,6 +3,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { X, Lock, Printer, TrendingUp, ShoppingBag, Tag, Receipt, CreditCard, Loader2 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { buildClosingReport, getPrinterManager } from "@/lib/printer";
 
 type Period = "daily" | "weekly" | "monthly";
 
@@ -44,45 +45,6 @@ function formatRange(start: string, end: string, period: Period) {
   const e = new Date(end);
   if (period === "daily") return formatDate(e);
   return `${formatDate(s)} – ${formatDate(e)}`;
-}
-
-// ── Print ─────────────────────────────────────────────────────────────────────
-function buildPrintHtml(data: ClosingData, orgName = "بسيطة"): string {
-  const periodLabel = PERIOD_LABELS[data.period];
-  const range       = formatRange(data.startDate, data.endDate, data.period);
-  const payRows = data.byPayment.map((p) =>
-    `<tr><td>${p.label}</td><td>${p.count} طلب</td><td style="text-align:left">${p.total.toFixed(2)}</td></tr>`
-  ).join("");
-
-  return `<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8">
-<title>${periodLabel}</title>
-<style>
-  body{font-family:'Courier New',monospace;font-size:13px;width:80mm;margin:0 auto;padding:12px}
-  .c{text-align:center} .b{font-weight:bold} .hr{border-top:1px dashed #000;margin:8px 0}
-  .row{display:flex;justify-content:space-between;margin:4px 0}
-  table{width:100%;border-collapse:collapse;font-size:12px}
-  td{padding:3px 0}
-  @media print{body{width:80mm}@page{size:80mm auto;margin:0}}
-</style></head><body>
-<div class="c"><div class="b" style="font-size:18px">${orgName}</div>
-<div style="font-size:11px;color:#555">نظام إدارة المطاعم والكافيهات</div></div>
-<div class="hr"></div>
-<div class="c b" style="font-size:15px">${periodLabel}</div>
-<div class="c" style="font-size:11px;margin:3px 0">${range}</div>
-<div class="hr"></div>
-<div class="row"><span>عدد الطلبات</span><span class="b">${data.ordersCount}</span></div>
-<div class="row"><span>إجمالي الإيرادات</span><span class="b">${data.totalRevenue.toFixed(2)}</span></div>
-<div class="row"><span>إجمالي الخصومات</span><span>${data.totalDiscount.toFixed(2)}</span></div>
-<div class="row"><span>الضريبة المحصلة</span><span>${data.totalTax.toFixed(2)}</span></div>
-<div class="row"><span>متوسط قيمة الطلب</span><span>${data.avgOrder.toFixed(2)}</span></div>
-<div class="hr"></div>
-<div class="b" style="margin-bottom:4px">طرق الدفع</div>
-<table>
-${payRows}
-</table>
-<div class="hr"></div>
-<div class="c" style="font-size:11px;margin-top:6px">طُبع في: ${new Date().toLocaleString("ar-EG")}</div>
-</body></html>`;
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -133,14 +95,33 @@ export function ClosingButton({ collapsed = false, orgName = "بسيطة" }: { c
     fetchData(p);
   }
 
-  function handlePrint() {
+  async function handlePrint() {
     if (!data) return;
-    const win = window.open("", "_blank", "width=420,height=700");
-    if (!win) return;
-    win.document.write(buildPrintHtml(data, orgName));
-    win.document.close();
-    win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 400);
+    setError(null);
+    try {
+      const manager = getPrinterManager();
+      const cashierPrinter = manager.getConfig().cashier_printer;
+      const bytes = buildClosingReport({
+        orgName,
+        periodLabel: PERIOD_LABELS[data.period],
+        range: formatRange(data.startDate, data.endDate, data.period),
+        ordersCount: data.ordersCount,
+        totalRevenue: data.totalRevenue,
+        totalSubtotal: data.totalSubtotal,
+        totalDiscount: data.totalDiscount,
+        totalTax: data.totalTax,
+        avgOrder: data.avgOrder,
+        byPayment: data.byPayment,
+      }, { ...cashierPrinter, paperWidth: 80 });
+
+      await manager.print({
+        printerId: "cashier_printer",
+        data: bytes,
+        description: "طباعة تقفيل الكاشير",
+      });
+    } catch (e: unknown) {
+      setError((e as Error).message || "فشلت طباعة التقفيل");
+    }
   }
 
   return (

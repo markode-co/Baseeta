@@ -21,7 +21,7 @@ import {
   buildCashierReceipt, buildKitchenTicket, buildHallTicket,
   loadReceiptSettings, saveReceiptSettings,
   buildReceiptHtml, buildEscPos,
-  printBrowser, printBluetooth, printNetwork, printUSB, validatePrinterConnection,
+  printBluetooth, printNetwork, printUSB, validatePrinterConnection,
 } from "@/lib/printer";
 import toast from "react-hot-toast";
 
@@ -47,8 +47,8 @@ const TIMEZONES = [
 ];
 
 const PAPER_WIDTHS: Array<{ value: PaperWidth; label: string; desc: string }> = [
-  { value: 58, label: "58 ملم", desc: "الحجم الشائع للطابعات المحمولة" },
   { value: 80, label: "80 ملم", desc: "الحجم الكبير للطابعات المكتبية" },
+  { value: 58, label: "58 ملم", desc: "الحجم الشائع للطابعات المحمولة" },
 ];
 
 const FONT_SCALES = [
@@ -231,7 +231,7 @@ function PrinterSettings({ orgName }: { orgName: string }) {
             <div>
               <p className="text-sm font-medium text-slate-700 mb-2">عرض الورقة</p>
               <Select
-                value={String(cfg.paperWidth || 58)}
+                value={String(cfg.paperWidth || 80)}
                 onValueChange={(value) => setCfg((p) => ({ ...p, paperWidth: parseInt(value) as PaperWidth }))}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -505,7 +505,7 @@ function PrinterDiagnostics({ orgName, orgLogo }: { orgName: string; orgLogo?: s
         <CardHeader><CardTitle className="text-base flex items-center gap-2"><Printer className="w-5 h-5 text-blue-600" /> Printer Diagnostics</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 leading-relaxed">
-            طباعة ESC/POS مباشرة من الهاتف بدون window.print. يدعم Bluetooth BLE و USB/OTG عبر Chrome و Edge، مع تجهيز العربية تلقائياً داخل خدمة الطباعة.
+            طباعة ESC/POS مباشرة من الهاتف بدون طباعة المتصفح. يدعم Bluetooth BLE و USB/OTG عبر Chrome و Edge، مع تجهيز العربية تلقائياً داخل خدمة الطباعة.
           </div>
           {PRINTER_IDS.map((id) => {
             const printer = config[id];

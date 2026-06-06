@@ -111,6 +111,33 @@ export interface HallTicketData {
   notes?: string;
 }
 
+export interface ClosingReportPrintData {
+  orgName: string;
+  periodLabel: string;
+  range: string;
+  ordersCount: number;
+  totalRevenue: number;
+  totalSubtotal: number;
+  totalDiscount: number;
+  totalTax: number;
+  avgOrder: number;
+  byPayment: Array<{ label: string; total: number; count: number; percentage?: number }>;
+}
+
+export interface SalesReportPrintData {
+  orgName: string;
+  printedAt: string;
+  todayRevenue: number;
+  todayOrders: number;
+  monthRevenue: number;
+  monthOrders: number;
+  allTimeRevenue: number;
+  allTimeOrdersCount: number;
+  avgOrderValue: number;
+  topItems: Array<{ name: string; nameAr: string | null; quantity: number; total: number }>;
+  ordersByType: Array<{ label: string; count: number; total: number }>;
+}
+
 export interface PrinterConfig {
   type: PrinterType;
   networkIp?: string;
@@ -181,7 +208,7 @@ export const DEFAULT_PRINTER_SETTINGS: PrinterDefaults = {
   density: 8,
   direction: 0,
   printerMode: "none",
-  paperWidth: 58,
+  paperWidth: 80,
   fontScale: 1,
   retryAttempts: 3,
 };
@@ -272,7 +299,7 @@ export function loadPrinterManagerConfig(): PrinterManagerConfig {
         networkIp: legacy.networkIp,
         networkPort: legacy.networkPort,
         codePage: legacy.codePage || "cp864",
-        paperWidth: legacy.paperWidth || 58,
+        paperWidth: legacy.paperWidth || 80,
         fontScale: legacy.fontScale || 1,
         retryAttempts: legacy.retryAttempts || 3,
         density: 8,
@@ -325,7 +352,7 @@ export function savePrinterConfig(cfg: PrinterConfig) {
     networkIp: cfg.networkIp,
     networkPort: cfg.networkPort,
     codePage: ARABIC_PRINTER_CODE_PAGE,
-    paperWidth: cfg.paperWidth || 58,
+    paperWidth: cfg.paperWidth || 80,
     fontScale: cfg.fontScale || 1,
     retryAttempts: cfg.retryAttempts || 3,
   };
@@ -452,15 +479,23 @@ function clampFontScale(value?: number) {
   return Math.max(0.8, Math.min(1.35, value || 1));
 }
 
+function printScale(settings: Pick<PrinterDeviceConfig, "paperWidth" | "fontScale">, mode: "receipt" | "report" = "receipt") {
+  const scale = clampFontScale(settings.fontScale);
+  if (mode === "report") {
+    return settings.paperWidth === 80 ? Math.min(scale, 1) : Math.min(scale, 0.88);
+  }
+  return scale;
+}
+
 function fontFor(item: { size?: "small" | "normal" | "large"; bold?: boolean }, scale = 1) {
-  const base = item.size === "large" ? 29 : item.size === "small" ? 17 : 21;
+  const base = item.size === "large" ? 27 : item.size === "small" ? 16 : 20;
   const px = Math.round(base * clampFontScale(scale));
   const weight = item.bold ? 700 : 500;
   return `${weight} ${px}px Arial, Tahoma, sans-serif`;
 }
 
 function lineHeightFor(size?: "small" | "normal" | "large", scale = 1) {
-  const base = size === "large" ? 37 : size === "small" ? 24 : 29;
+  const base = size === "large" ? 34 : size === "small" ? 21 : 26;
   return Math.round(base * clampFontScale(scale));
 }
 
@@ -501,7 +536,8 @@ function rasterizeItems(items: RasterItem[], paperWidth: PaperWidth, fontScale =
   if (!canRenderRaster()) return new Uint8Array();
 
   const width = paperPixels(paperWidth);
-  const padding = paperWidth === 80 ? 24 : 16;
+  const scale = clampFontScale(fontScale);
+  const padding = paperWidth === 80 ? 18 : 10;
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = 5000;
@@ -514,7 +550,7 @@ function rasterizeItems(items: RasterItem[], paperWidth: PaperWidth, fontScale =
   ctx.textBaseline = "top";
   ctx.direction = "rtl";
 
-  let y = 10;
+  let y = paperWidth === 80 ? 8 : 6;
   const contentWidth = width - padding * 2;
 
   for (const item of items) {
@@ -525,9 +561,9 @@ function rasterizeItems(items: RasterItem[], paperWidth: PaperWidth, fontScale =
     if (item.type === "separator") {
       ctx.direction = "ltr";
       ctx.textAlign = "center";
-      ctx.font = "500 16px Arial, Tahoma, sans-serif";
-      ctx.fillText((item.char || "-").repeat(paperWidth === 80 ? 54 : 36), width / 2, y);
-      y += 22;
+      ctx.font = `${Math.round(14 * scale)}px Arial, Tahoma, sans-serif`;
+      ctx.fillText((item.char || "-").repeat(paperWidth === 80 ? 58 : 40), width / 2, y);
+      y += Math.round((paperWidth === 80 ? 18 : 16) * scale);
       continue;
     }
     if (item.type === "row") {
@@ -535,10 +571,10 @@ function rasterizeItems(items: RasterItem[], paperWidth: PaperWidth, fontScale =
       const lineHeight = lineHeightFor(item.size, fontScale);
       ctx.direction = "rtl";
       ctx.textAlign = "right";
-      const labelLines = wrapCanvasText(ctx, item.label, contentWidth * 0.58);
+      const labelLines = wrapCanvasText(ctx, item.label, contentWidth * (paperWidth === 80 ? 0.6 : 0.56));
       ctx.direction = "ltr";
       ctx.textAlign = "left";
-      const valueLines = wrapCanvasText(ctx, item.value, contentWidth * 0.38);
+      const valueLines = wrapCanvasText(ctx, item.value, contentWidth * (paperWidth === 80 ? 0.36 : 0.4));
       const rows = Math.max(labelLines.length, valueLines.length);
       for (let i = 0; i < rows; i += 1) {
         ctx.direction = "rtl";
@@ -666,7 +702,7 @@ class EscPosBuilder {
 
   constructor(settings: Pick<PrinterDeviceConfig, "codePage" | "paperWidth" | "density" | "fontScale">) {
     this.codePage = ARABIC_PRINTER_CODE_PAGE;
-    this.paperWidth = settings.paperWidth || 58;
+    this.paperWidth = settings.paperWidth || 80;
     this.fontScale = clampFontScale(settings.fontScale);
     this.width = lineWidth(this.paperWidth);
     this.raw(escBytes(0x1b, 0x40));
@@ -724,8 +760,8 @@ class EscPosBuilder {
     return this;
   }
 
-  raster(items: RasterItem[]) {
-    this.raw(rasterizeItems(items, this.paperWidth, this.fontScale));
+  raster(items: RasterItem[], fontScale = this.fontScale) {
+    this.raw(rasterizeItems(items, this.paperWidth, fontScale));
     return this;
   }
 
@@ -978,6 +1014,181 @@ export function buildHallTicket(data: HallTicketData, config?: Partial<PrinterDe
   return builder.bytes();
 }
 
+export function buildClosingReport(data: ClosingReportPrintData, config?: Partial<PrinterDeviceConfig>): Uint8Array {
+  const settings = { ...DEFAULT_PRINTER_SETTINGS, ...config };
+  const compactScale = printScale(settings, "report");
+  const titleSize = settings.paperWidth === 80 ? "large" : "normal";
+  const netSales = data.totalSubtotal - data.totalDiscount;
+
+  if (canRenderRaster()) {
+    const builder = new EscPosBuilder(settings);
+    const items: RasterItem[] = [
+      { type: "text", text: data.orgName, align: "center", size: titleSize, bold: true },
+      { type: "text", text: "نظام إدارة المطاعم والكافيهات", align: "center", size: "small" },
+      { type: "separator", char: "=" },
+      { type: "text", text: data.periodLabel, align: "center", size: titleSize, bold: true },
+      { type: "text", text: data.range, align: "center", size: "small" },
+      { type: "separator" },
+      { type: "row", label: "عدد الطلبات", value: String(data.ordersCount), bold: true },
+      { type: "row", label: "إجمالي الإيرادات", value: money(data.totalRevenue), bold: true },
+      { type: "row", label: "إجمالي الخصومات", value: money(data.totalDiscount) },
+      { type: "row", label: "الضريبة المحصلة", value: money(data.totalTax) },
+      { type: "row", label: "متوسط قيمة الطلب", value: money(data.avgOrder) },
+      { type: "separator", char: "=" },
+      { type: "row", label: "صافي المبيعات", value: money(netSales), size: titleSize, bold: true },
+      { type: "separator" },
+      { type: "text", text: "طرق الدفع", align: "right", bold: true },
+    ];
+
+    if (data.byPayment.length === 0) {
+      items.push({ type: "text", text: "لا توجد مدفوعات في هذه الفترة", align: "center", size: "small" });
+    } else {
+      data.byPayment.forEach((payment) => {
+        const label = payment.percentage != null ? `${payment.label} (${payment.percentage}%)` : payment.label;
+        items.push(
+          { type: "row", label, value: money(payment.total) },
+          { type: "row", label: "عدد الطلبات", value: String(payment.count), size: "small" }
+        );
+      });
+    }
+
+    items.push(
+      { type: "separator" },
+      { type: "text", text: `طُبع في: ${formatDateTime()}`, align: "center", size: "small" }
+    );
+    builder.raster(items, compactScale).cut();
+    return builder.bytes();
+  }
+
+  const builder = new EscPosBuilder(settings);
+  builder
+    .align("center")
+    .bold(true)
+    .size(settings.paperWidth === 80 ? "large" : "normal")
+    .line(data.orgName)
+    .size("normal")
+    .bold(false)
+    .line("نظام إدارة المطاعم والكافيهات")
+    .separator("=")
+    .bold(true)
+    .line(data.periodLabel)
+    .bold(false)
+    .line(data.range)
+    .separator()
+    .align("right")
+    .row("عدد الطلبات", String(data.ordersCount))
+    .row("إجمالي الإيرادات", money(data.totalRevenue))
+    .row("إجمالي الخصومات", money(data.totalDiscount))
+    .row("الضريبة المحصلة", money(data.totalTax))
+    .row("متوسط قيمة الطلب", money(data.avgOrder))
+    .separator("=")
+    .bold(true)
+    .size(settings.paperWidth === 80 ? "large" : "normal")
+    .row("صافي المبيعات", money(netSales))
+    .size("normal")
+    .bold(false)
+    .separator()
+    .line("طرق الدفع");
+  if (data.byPayment.length === 0) {
+    builder.align("center").line("لا توجد مدفوعات في هذه الفترة");
+  } else {
+    data.byPayment.forEach((payment) => {
+      builder
+        .align("right")
+        .row(payment.label, money(payment.total))
+        .row("عدد الطلبات", String(payment.count));
+    });
+  }
+  builder.separator().align("center").line(`طُبع في: ${formatDateTime()}`).cut();
+  return builder.bytes();
+}
+
+export function buildSalesReport(data: SalesReportPrintData, config?: Partial<PrinterDeviceConfig>): Uint8Array {
+  const settings = { ...DEFAULT_PRINTER_SETTINGS, ...config };
+  const compactScale = printScale(settings, "report");
+  const titleSize = settings.paperWidth === 80 ? "large" : "normal";
+  const maxTopItems = settings.paperWidth === 80 ? 10 : 6;
+
+  if (canRenderRaster()) {
+    const builder = new EscPosBuilder(settings);
+    const items: RasterItem[] = [
+      { type: "text", text: data.orgName, align: "center", size: titleSize, bold: true },
+      { type: "text", text: "تقرير المبيعات", align: "center", size: titleSize, bold: true },
+      { type: "text", text: data.printedAt, align: "center", size: "small" },
+      { type: "separator", char: "=" },
+      { type: "row", label: "مبيعات اليوم", value: money(data.todayRevenue), bold: true },
+      { type: "row", label: "طلبات اليوم", value: String(data.todayOrders) },
+      { type: "row", label: "مبيعات الشهر", value: money(data.monthRevenue), bold: true },
+      { type: "row", label: "طلبات الشهر", value: String(data.monthOrders) },
+      { type: "row", label: "متوسط قيمة الطلب", value: money(data.avgOrderValue) },
+      { type: "row", label: "إجمالي الإيرادات", value: money(data.allTimeRevenue), bold: true },
+      { type: "row", label: "إجمالي الطلبات", value: String(data.allTimeOrdersCount) },
+      { type: "separator" },
+      { type: "text", text: "أكثر الأصناف مبيعاً", align: "right", bold: true },
+    ];
+
+    if (data.topItems.length === 0) {
+      items.push({ type: "text", text: "لا توجد مبيعات بعد", align: "center", size: "small" });
+    } else {
+      data.topItems.slice(0, maxTopItems).forEach((item, index) => {
+        items.push(
+          { type: "text", text: `${index + 1}. ${item.nameAr || item.name}`, align: "right", bold: true },
+          { type: "row", label: `${item.quantity} قطعة`, value: money(item.total), size: "small" }
+        );
+      });
+    }
+
+    items.push({ type: "separator" }, { type: "text", text: "أنواع الطلبات", align: "right", bold: true });
+    if (data.ordersByType.length === 0) {
+      items.push({ type: "text", text: "لا توجد طلبات", align: "center", size: "small" });
+    } else {
+      data.ordersByType.forEach((orderType) => {
+        items.push(
+          { type: "row", label: orderType.label, value: money(orderType.total) },
+          { type: "row", label: "عدد الطلبات", value: String(orderType.count), size: "small" }
+        );
+      });
+    }
+
+    builder.raster(items, compactScale).cut();
+    return builder.bytes();
+  }
+
+  const builder = new EscPosBuilder(settings);
+  builder
+    .align("center")
+    .bold(true)
+    .size(settings.paperWidth === 80 ? "large" : "normal")
+    .line(data.orgName)
+    .line("تقرير المبيعات")
+    .size("normal")
+    .bold(false)
+    .line(data.printedAt)
+    .separator()
+    .align("right")
+    .row("مبيعات اليوم", money(data.todayRevenue))
+    .row("طلبات اليوم", String(data.todayOrders))
+    .row("مبيعات الشهر", money(data.monthRevenue))
+    .row("طلبات الشهر", String(data.monthOrders))
+    .row("متوسط قيمة الطلب", money(data.avgOrderValue))
+    .row("إجمالي الإيرادات", money(data.allTimeRevenue))
+    .row("إجمالي الطلبات", String(data.allTimeOrdersCount))
+    .separator()
+    .line("أكثر الأصناف مبيعاً");
+  data.topItems.slice(0, maxTopItems).forEach((item, index) => {
+    builder.line(`${index + 1}. ${clampText(item.nameAr || item.name, builder.width - 4)}`);
+    builder.row(`${item.quantity} قطعة`, money(item.total));
+  });
+  if (data.topItems.length === 0) builder.align("center").line("لا توجد مبيعات بعد").align("right");
+  builder.separator().line("أنواع الطلبات");
+  data.ordersByType.forEach((orderType) => {
+    builder.row(orderType.label, money(orderType.total)).row("عدد الطلبات", String(orderType.count));
+  });
+  if (data.ordersByType.length === 0) builder.align("center").line("لا توجد طلبات");
+  builder.cut();
+  return builder.bytes();
+}
+
 export function buildReceiptHtml(data: CashierReceiptData): string {
   const rows = data.items.map((item) => `
     <tr>
@@ -1014,20 +1225,6 @@ export function buildReceiptHtml(data: CashierReceiptData): string {
       <p style="text-align:center;margin-top:4px;font-size:10px;font-weight:700;letter-spacing:.4px">markode.co</p>
     </div>
   `;
-}
-
-export async function printBrowser(html: string) {
-  const win = window.open("", "_blank", "width=420,height=700,scrollbars=yes");
-  if (!win) throw new Error("فشل فتح نافذة الطباعة. تأكد من السماح للنوافذ المنبثقة.");
-  win.document.write(`<!doctype html><html dir="rtl"><head><meta charset="utf-8"><style>*{box-sizing:border-box}body{margin:0;padding:8px}@media print{body{margin:0;padding:0}}</style></head><body>${html}</body></html>`);
-  win.document.close();
-  win.focus();
-  setTimeout(() => {
-    try {
-      win.print();
-      win.close();
-    } catch {}
-  }, 500);
 }
 
 class PrintQueue {
@@ -1151,7 +1348,7 @@ export class PrinterManager {
   private async write(printerId: PrinterId, data: Uint8Array) {
     const cfg = this.config[printerId];
     if (cfg.connectionType === "browser") {
-      throw new Error("طباعة المتصفح تحتاج HTML. استخدم printBrowser للمعاينة فقط.");
+      throw new Error("الطباعة المباشرة تحتاج Bluetooth أو USB أو شبكة. اختر طابعة من إعدادات الطباعة.");
     }
     if (cfg.connectionType === "bluetooth") {
       const session = await this.getBluetoothSession(printerId);

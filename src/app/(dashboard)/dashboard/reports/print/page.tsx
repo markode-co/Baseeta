@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatCurrency } from "@/lib/utils";
 import { getReportsData } from "../reports-data";
+import { PrintActions } from "./print-actions";
 
 const ORDER_TYPE_LABELS: Record<string, string> = {
   DINE_IN: "داخل المطعم أو الكافيه",
@@ -22,6 +23,28 @@ export default async function ReportsPrintPage() {
   const data = await getReportsData(session.organizationId, session.branchId);
   const orgName = org?.name || "بسيطة";
   const printedAt = new Date().toLocaleString("ar-EG");
+  const printData = {
+    orgName,
+    printedAt,
+    todayRevenue: data.todayRevenue,
+    todayOrders: data.todayOrders,
+    monthRevenue: data.monthRevenue,
+    monthOrders: data.monthOrders,
+    allTimeRevenue: data.allTimeRevenue,
+    allTimeOrdersCount: data.allTimeOrdersCount,
+    avgOrderValue: data.avgOrderValue,
+    topItems: data.topItems.map((item) => ({
+      name: item.name,
+      nameAr: item.nameAr,
+      quantity: item._sum.quantity || 0,
+      total: item._sum.total || 0,
+    })),
+    ordersByType: data.ordersByType.map((orderType) => ({
+      label: ORDER_TYPE_LABELS[orderType.type] || orderType.type,
+      count: orderType._count,
+      total: orderType._sum.total || 0,
+    })),
+  };
 
   return (
     <main className="min-h-screen bg-white text-slate-950" dir="rtl">
@@ -30,7 +53,7 @@ export default async function ReportsPrintPage() {
           <Link href="/dashboard/reports" className="text-sm font-medium text-blue-700 hover:underline">
             العودة للتقارير
           </Link>
-          <span className="text-sm font-medium text-slate-600">نسخة الطباعة</span>
+          <PrintActions data={printData} />
         </div>
       </div>
 
